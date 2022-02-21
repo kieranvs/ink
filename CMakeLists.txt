@@ -8,5 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ======== Compiler ========
 add_executable(
 	compiler
+	ast.cpp
+	codegen.cpp
+	lexer.cpp
 	main.cpp
+	parser.cpp
+	utils.cpp
 )
