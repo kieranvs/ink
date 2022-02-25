@@ -29,9 +29,12 @@ int main(int argc, char** argv)
 
 	Parser parser(tokens);
 
-	Ast t;
-	size_t st = parse_statement(parser, t);
-	dump_ast(t, st);
+	SymbolTable symbol_table;
+	symbol_table.functions.emplace_back();
+	size_t main_func = symbol_table.functions.size() - 1;
+
+	parse_function(parser, symbol_table, main_func);
+	dump_ast(symbol_table.functions[main_func].ast, symbol_table.functions[main_func].ast_node_root);
 
 	FILE* file_ptr = fopen("test.asm","w");
 	if (file_ptr == nullptr)
@@ -43,7 +46,7 @@ int main(int argc, char** argv)
 	fprintf(file_ptr, "\n");
 	fprintf(file_ptr, "_start:\n");
 
-	codegen(t, file_ptr, st);
+	codegen(symbol_table.functions[main_func].ast, file_ptr, symbol_table.functions[main_func].ast_node_root);
 
 	fprintf(file_ptr, "    mov rdi, rax\n");
 	fprintf(file_ptr, "    call print_uint32\n");

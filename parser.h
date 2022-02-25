@@ -19,7 +19,13 @@ struct Parser
 		return ret;
 	}
 
-	bool has_more() const {
+	bool next_is(TokenType type) const
+	{
+		return has_more() && input[index].type == type;
+	}
+
+	bool has_more() const
+	{
 		return input.size() > index;
 	}
 
@@ -27,4 +33,4 @@ struct Parser
 	size_t index = 0;
 };
 
-size_t parse_statement(Parser& parser, Ast& ast);
+void parse_function(Parser& parser, SymbolTable& symbol_table, size_t func_index);

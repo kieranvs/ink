@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <stdint.h>
 
 #include <vector>
+#include <string>
+#include <optional>
 
 enum class AstNodeType
 {
@@ -11,7 +14,8 @@ enum class AstNodeType
 	BinOpAdd,
 	BinOpMul,
 	Variable,
-	Assignment
+	Assignment,
+	FunctionDefinition
 };
 
 struct AstNode
@@ -20,6 +24,8 @@ struct AstNode
 
 	size_t child0;
 	size_t child1;
+	std::optional<size_t> next;
+
 	int data_int;
 };
 
@@ -36,6 +42,33 @@ struct Ast
 	}
 
 	AstNode& operator[](size_t index) { return nodes[index]; }
+};
+
+struct Variable
+{
+	uint32_t stack_offset;
+	std::string name;
+};
+
+struct Scope
+{
+	std::vector<Variable> local_variables;
+	std::optional<size_t> parent;
+
+	const Variable& find_or_make_variable(const std::string& name);
+};
+
+struct Function
+{
+	size_t scope;
+	Ast ast;
+	size_t ast_node_root;
+};
+
+struct SymbolTable
+{
+	std::vector<Function> functions;
+	std::vector<Scope> scopes;
 };
 
 void dump_ast(Ast& ast, size_t index = 0, int indent = 0);

@@ -36,6 +36,11 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			tokens.emplace_back();
 			tokens.back().type = TokenType::Assign;
 		}
+		else if (lexer.get_if(';'))
+		{
+			tokens.emplace_back();
+			tokens.back().type = TokenType::StatementEnd;
+		}
 		else
 			lexer.get();
 	}

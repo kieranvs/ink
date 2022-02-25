@@ -31,6 +31,23 @@ void codegen(Ast& ast, FILE* file, size_t index)
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
 		codegen(ast, file, ast[index].child1);
+
+		auto variable_node = ast[index].child0;
+		fprintf(file, "    mov [rbp - %d], eax\n", ast[variable_node].data_int);
+
+		if (ast[index].next.has_value())
+			codegen(ast, file, ast[index].next.value());
+	}
+	else if (ast[index].type == AstNodeType::FunctionDefinition)
+	{
+		fprintf(file, "    push rbp\n");
+		fprintf(file, "    mov rbp, rsp\n");
+		fprintf(file, "    sub rsp, %d\n", ast[index].data_int);
+
+		if (ast[index].next.has_value())
+			codegen(ast, file, ast[index].next.value());
+
+		fprintf(file, "    leave\n");
 	}
 	else
 	{

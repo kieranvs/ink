@@ -11,7 +11,8 @@ enum class TokenType
 	Plus,
 	Multiply,
 	Identifier,
-	Assign
+	Assign,
+	StatementEnd
 };
 
 struct Token
