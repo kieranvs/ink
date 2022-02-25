@@ -49,21 +49,28 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	}
 }
 
-const Variable& Scope::find_or_make_variable(const std::string& name)
+const Variable& Scope::find_variable(const std::string& name, bool allow_create)
 {
 	for (const auto& v : local_variables)
 	{
 		if (v.name == name) return v;
 	}
 
-	local_variables.emplace_back();
-	auto& v = local_variables.back();
+	if (allow_create)
+	{
+		local_variables.emplace_back();
+		auto& v = local_variables.back();
 
-	v.name = name;
-	if (local_variables.size() == 1)
-		v.stack_offset = 0;
+		v.name = name;
+		if (local_variables.size() == 1)
+			v.stack_offset = 0;
+		else
+			v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + 4;
+
+		return v;
+	}
 	else
-		v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + 4;
-
-	return v;
+	{
+		fail("Undefined variable!\n");
+	}
 }

@@ -2,7 +2,7 @@
 
 #include <stack>
 
-size_t parse_expression(Parser& parser, Ast& ast)
+size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index)
 {
 	std::stack<size_t> expr_nodes;
 	std::stack<Token> operators;
@@ -57,6 +57,16 @@ size_t parse_expression(Parser& parser, Ast& ast)
 
 			operators.push(next_token);
 		}
+		else if (next_token.type == TokenType::Identifier)
+		{
+			auto node = ast.make(AstNodeType::Variable);
+
+			auto& scope = symbol_table.scopes[scope_index];
+			auto& variable = scope.find_variable(next_token.data_str, false);
+			ast[node].data_variable.offset = variable.stack_offset;
+
+			expr_nodes.push(node);
+		}
 		else
 		{
 			fail("Unexpected token in expression\n");
@@ -79,11 +89,11 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& assign_token = parser.get();
 		if (assign_token.type != TokenType::Assign) fail("Invalid statement\n");
 
-		auto expr_node = parse_expression(parser, ast);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto& variable = scope.find_or_make_variable(ident_token.data_str);
+		auto& variable = scope.find_variable(ident_token.data_str, true);
 		ast[var_node].data_variable.offset = variable.stack_offset;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);

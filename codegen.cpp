@@ -26,7 +26,7 @@ void codegen(Ast& ast, FILE* file, size_t index)
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		
+		fprintf(file, "    mov eax, [rbp - %d]\n", ast[index].data_variable.offset);
 	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
