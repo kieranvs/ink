@@ -10,18 +10,18 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 
 			int x = std::stoi(literal_string);
 			tokens.emplace_back();
-			tokens.back().type = TokenType::IntegerLiteral;
+			tokens.back().type = TokenType::LiteralInteger;
 			tokens.back().data_int = x;
 		}
 		else if (lexer.get_if('*'))
 		{
 			tokens.emplace_back();
-			tokens.back().type = TokenType::Multiply;
+			tokens.back().type = TokenType::OperatorMultiply;
 		}
 		else if (lexer.get_if('+'))
 		{
 			tokens.emplace_back();
-			tokens.back().type = TokenType::Plus;
+			tokens.back().type = TokenType::OperatorPlus;
 		}
 		else if (std::isalpha(lexer.peek()))
 		{

@@ -7,9 +7,9 @@
 
 enum class TokenType
 {
-	IntegerLiteral,
-	Plus,
-	Multiply,
+	LiteralInteger,
+	OperatorPlus,
+	OperatorMultiply,
 	Identifier,
 	Assign,
 	StatementEnd

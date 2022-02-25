@@ -26,7 +26,27 @@ struct AstNode
 	size_t child1;
 	std::optional<size_t> next;
 
-	int data_int;
+	struct DataLiteralInt
+	{
+		int value;
+	};
+
+	struct DataVariable
+	{
+		int offset;
+	};
+
+	struct DataFunctionDefinition
+	{
+		int stack_size;
+	};
+
+	union
+	{
+		DataLiteralInt data_literal_int;
+		DataVariable data_variable;
+		DataFunctionDefinition data_function_definition;
+	};
 };
 
 struct Ast

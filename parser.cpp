@@ -10,9 +10,9 @@ size_t parse_expression(Parser& parser, Ast& ast)
 
 	auto priority = [](const Token& t)
 	{
-		if (t.type == TokenType::Plus)
+		if (t.type == TokenType::OperatorPlus)
 			return 1;
-		else if (t.type == TokenType::Multiply)
+		else if (t.type == TokenType::OperatorMultiply)
 			return 2;
 		else return 0;
 	};
@@ -27,7 +27,7 @@ size_t parse_expression(Parser& parser, Ast& ast)
 		expr_nodes.pop();
 
 		size_t node;
-		if (top.type == TokenType::Plus)
+		if (top.type == TokenType::OperatorPlus)
 			node = ast.make(AstNodeType::BinOpAdd);
 		else
 			node = ast.make(AstNodeType::BinOpMul);
@@ -42,13 +42,13 @@ size_t parse_expression(Parser& parser, Ast& ast)
 	while (parser.has_more() && !parser.next_is(TokenType::StatementEnd))
 	{
 		auto& next_token = parser.get();
-		if (next_token.type == TokenType::IntegerLiteral)
+		if (next_token.type == TokenType::LiteralInteger)
 		{
 			auto node = ast.make(AstNodeType::LiteralInt);
-			ast[node].data_int = next_token.data_int;
+			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
 		}
-		else if (next_token.type == TokenType::Plus || next_token.type == TokenType::Multiply)
+		else if (next_token.type == TokenType::OperatorPlus || next_token.type == TokenType::OperatorMultiply)
 		{
 			while (!operators.empty() && priority(operators.top()) > priority(next_token)) // or they are the same and next_token is left assoc
 			{
@@ -84,7 +84,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		auto& scope = symbol_table.scopes[scope_index];
 		auto& variable = scope.find_or_make_variable(ident_token.data_str);
-		ast[var_node].data_int = variable.stack_offset;
+		ast[var_node].data_variable.offset = variable.stack_offset;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
 		ast[assign_node].child0 = var_node;
@@ -130,5 +130,5 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, size_t func_index
 	if (stack_size % 16 != 0)
 		stack_size = ((stack_size / 16) + 1) * 16;
 
-	ast[func_node].data_int = stack_size;
+	ast[func_node].data_function_definition.stack_size = stack_size;
 }

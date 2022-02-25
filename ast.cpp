@@ -12,7 +12,7 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	if (ast[index].type == AstNodeType::None)
 		return;
 	else if (ast[index].type == AstNodeType::LiteralInt)
-		printf("%d\n", ast[index].data_int);
+		printf("%d\n", ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::BinOpAdd)
 	{
 		printf("+\n");
@@ -35,7 +35,7 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		printf("Variable %d\n", ast[index].data_int);
+		printf("Variable %d\n", ast[index].data_variable.offset);
 	}
 	else if (ast[index].type == AstNodeType::FunctionDefinition)
 	{

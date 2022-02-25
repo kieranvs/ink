@@ -7,7 +7,7 @@ void codegen(Ast& ast, FILE* file, size_t index)
 	if (ast[index].type == AstNodeType::None)
 		return;
 	else if (ast[index].type == AstNodeType::LiteralInt)
-		fprintf(file, "    mov rax, %d\n", ast[index].data_int);
+		fprintf(file, "    mov rax, %d\n", ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::BinOpAdd)
 	{
 		codegen(ast, file, ast[index].child0);
@@ -33,7 +33,7 @@ void codegen(Ast& ast, FILE* file, size_t index)
 		codegen(ast, file, ast[index].child1);
 
 		auto variable_node = ast[index].child0;
-		fprintf(file, "    mov [rbp - %d], eax\n", ast[variable_node].data_int);
+		fprintf(file, "    mov [rbp - %d], eax\n", ast[variable_node].data_variable.offset);
 
 		if (ast[index].next.has_value())
 			codegen(ast, file, ast[index].next.value());
@@ -42,7 +42,7 @@ void codegen(Ast& ast, FILE* file, size_t index)
 	{
 		fprintf(file, "    push rbp\n");
 		fprintf(file, "    mov rbp, rsp\n");
-		fprintf(file, "    sub rsp, %d\n", ast[index].data_int);
+		fprintf(file, "    sub rsp, %d\n", ast[index].data_function_definition.stack_size);
 
 		if (ast[index].next.has_value())
 			codegen(ast, file, ast[index].next.value());
