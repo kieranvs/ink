@@ -30,54 +30,14 @@ int main(int argc, char** argv)
 	Parser parser(tokens);
 
 	SymbolTable symbol_table;
-	symbol_table.functions.emplace_back();
-	size_t main_func = symbol_table.functions.size() - 1;
-
-	parse_function(parser, symbol_table, main_func);
-	dump_ast(symbol_table.functions[main_func].ast, symbol_table.functions[main_func].ast_node_root);
+	
+	parse_top_level(parser, symbol_table);
 
 	FILE* file_ptr = fopen("test.asm","w");
 	if (file_ptr == nullptr)
 		fail("Cannot open test.asm for writing!\n");
 
-	fprintf(file_ptr, "    global    _start\n");
-	fprintf(file_ptr, "\n");
-	fprintf(file_ptr, "    section   .text\n");
-	fprintf(file_ptr, "\n");
-	fprintf(file_ptr, "_start:\n");
+	codegen(symbol_table, file_ptr);
 
-	codegen(symbol_table.functions[main_func].ast, file_ptr, symbol_table.functions[main_func].ast_node_root);
-
-	fprintf(file_ptr, "    mov rdi, rax\n");
-	fprintf(file_ptr, "    call print_uint32\n");
-	fprintf(file_ptr, "    call exit\n");
-	fprintf(file_ptr, "\n");
-	fprintf(file_ptr, "exit:\n");
-	fprintf(file_ptr, "    mov rax, 60\n");
-	fprintf(file_ptr, "    xor rdi, rdi\n");
-	fprintf(file_ptr, "    syscall\n");
-	fprintf(file_ptr, "\n");
-	fprintf(file_ptr, "print_uint32:\n");
-	fprintf(file_ptr, "    mov eax, edi\n");
-	fprintf(file_ptr, "    mov ecx, 10\n");
-	fprintf(file_ptr, "    push rcx\n");
-	fprintf(file_ptr, "    mov rsi, rsp\n");
-	fprintf(file_ptr, "    sub rsp, 16\n");
-	fprintf(file_ptr, ".toascii_digit:\n");
-	fprintf(file_ptr, "    xor edx, edx\n");
-	fprintf(file_ptr, "    div ecx\n");
-	fprintf(file_ptr, "    add edx, '0'\n");
-	fprintf(file_ptr, "    dec rsi\n");
-	fprintf(file_ptr, "    mov [rsi], dl\n");
-	fprintf(file_ptr, "    test eax, eax\n");
-	fprintf(file_ptr, "    jnz .toascii_digit\n");
-	fprintf(file_ptr, "    mov eax, 1\n");
-	fprintf(file_ptr, "    mov edi, 1\n");
-	fprintf(file_ptr, "    lea edx, [rsp+16 + 1]\n");
-	fprintf(file_ptr, "    sub edx, esi\n");
-	fprintf(file_ptr, "    syscall\n");
-	fprintf(file_ptr, "    add rsp, 24\n");
-	fprintf(file_ptr, "    ret\n");
-	
 	fclose(file_ptr);
 }

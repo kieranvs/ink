@@ -19,6 +19,20 @@ struct Parser
 		return ret;
 	}
 
+	const Token& get_if(TokenType type, const char* error_message)
+	{
+		if (index >= input.size())
+			fail("Parser read past end of input data\n");
+
+		const Token& ret = input[index];
+		index += 1;
+
+		if (ret.type != type)
+			fail(error_message);
+
+		return ret;
+	}
+
 	bool next_is(TokenType type) const
 	{
 		return has_more() && input[index].type == type;
@@ -33,4 +47,4 @@ struct Parser
 	size_t index = 0;
 };
 
-void parse_function(Parser& parser, SymbolTable& symbol_table, size_t func_index);
+void parse_top_level(Parser& parser, SymbolTable& symbol_table);

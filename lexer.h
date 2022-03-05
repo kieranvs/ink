@@ -7,6 +7,11 @@
 
 enum class TokenType
 {
+	KeywordFunctionDecl,
+	ParenthesisLeft,
+	ParenthesisRight,
+	BraceLeft,
+	BraceRight,
 	LiteralInteger,
 	OperatorPlus,
 	OperatorMultiply,

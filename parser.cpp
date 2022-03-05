@@ -109,23 +109,38 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	}
 }
 
-void parse_function(Parser& parser, SymbolTable& symbol_table, size_t func_index)
+void parse_function(Parser& parser, SymbolTable& symbol_table)
 {
-	Ast& ast = symbol_table.functions[func_index].ast;
-	size_t func_node = ast.make(AstNodeType::FunctionDefinition);
-	symbol_table.functions[func_index].ast_node_root = func_node;
+	parser.get_if(TokenType::KeywordFunctionDecl, "Invalid function declaration");
+	auto& func_ident_token = parser.get_if(TokenType::Identifier, "Expected function name");
+	parser.get_if(TokenType::ParenthesisLeft, "Expected (");
+	parser.get_if(TokenType::ParenthesisRight, "Expected )");
+	parser.get_if(TokenType::BraceLeft, "Expected {");
+
+	symbol_table.functions.emplace_back();
+	Function& func = symbol_table.functions.back();
+	func.name = func_ident_token.data_str;
+
+	size_t func_node = func.ast.make(AstNodeType::FunctionDefinition);
+	func.ast_node_root = func_node;
 
 	symbol_table.scopes.emplace_back();
 	size_t scope = symbol_table.scopes.size() - 1;
 
 	if (parser.has_more())
 	{
-		ast[func_node].next = parse_statement(parser, ast, symbol_table, scope);
-		size_t prev_node = ast[func_node].next.value();
+		func.ast[func_node].next = parse_statement(parser, func.ast, symbol_table, scope);
+		size_t prev_node = func.ast[func_node].next.value();
 		while (parser.has_more())
 		{
-			size_t st = parse_statement(parser, ast, symbol_table, scope);
-			ast[prev_node].next = st;
+			if (parser.next_is(TokenType::BraceRight))
+			{
+				parser.get();
+				break;
+			}
+
+			size_t st = parse_statement(parser, func.ast, symbol_table, scope);
+			func.ast[prev_node].next = st;
 			prev_node = st;
 		}
 	}
@@ -140,5 +155,16 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, size_t func_index
 	if (stack_size % 16 != 0)
 		stack_size = ((stack_size / 16) + 1) * 16;
 
-	ast[func_node].data_function_definition.stack_size = stack_size;
+	func.ast[func_node].data_function_definition.stack_size = stack_size;
+}
+
+void parse_top_level(Parser& parser, SymbolTable& symbol_table)
+{
+	while (parser.has_more())
+	{
+		if (parser.next_is(TokenType::KeywordFunctionDecl))
+			parse_function(parser, symbol_table);
+		else
+			fail("Unexpected token at top level\n");
+	}
 }

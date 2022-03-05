@@ -5,4 +5,4 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void codegen(Ast& ast, FILE* file, size_t index = 0);
+void codegen(SymbolTable& symbol_table, FILE* file);

@@ -83,6 +83,7 @@ struct Function
 	size_t scope;
 	Ast ast;
 	size_t ast_node_root;
+	std::string name;
 };
 
 struct SymbolTable
