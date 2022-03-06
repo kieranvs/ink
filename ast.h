@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lexer.h"
+
 #include <cstddef>
 #include <stdint.h>
 
@@ -75,7 +77,7 @@ struct Scope
 	std::vector<Variable> local_variables;
 	std::optional<size_t> parent;
 
-	const Variable& find_variable(const std::string& name, bool allow_create);
+	const Variable& find_variable(const Token& token, bool allow_create);
 };
 
 struct Function

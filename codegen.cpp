@@ -52,7 +52,7 @@ void codegen_ast(Ast& ast, FILE* file, size_t index)
 	}
 	else
 	{
-		fail("Unhandled AST node type in code gen\n");
+		internal_error("Unhandled AST node type in code gen");
 	}
 }
 
@@ -75,7 +75,7 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 			break;
 		}
 	}
-	if (!main_defined) fail("No main function defined\n");
+	if (!main_defined) log_error("No main function defined");
 
 	fprintf(file, "    global    _start\n");
 	fprintf(file, "\n");

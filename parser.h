@@ -7,31 +7,9 @@ struct Parser
 {
 	Parser(const std::vector<Token>& i) : input(i) {}
 
-	const Token& get()
-	{
-		if (index >= input.size())
-		{
-			fail("Parser read past end of input data\n");
-		}
-
-		const Token& ret = input[index];
-		index += 1;
-		return ret;
-	}
-
-	const Token& get_if(TokenType type, const char* error_message)
-	{
-		if (index >= input.size())
-			fail("Parser read past end of input data\n");
-
-		const Token& ret = input[index];
-		index += 1;
-
-		if (ret.type != type)
-			fail(error_message);
-
-		return ret;
-	}
+	const Token& peek();
+	const Token& get();
+	const Token& get_if(TokenType type, const char* error_message);
 
 	bool next_is(TokenType type) const
 	{

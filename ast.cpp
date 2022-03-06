@@ -45,15 +45,15 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	}
 	else
 	{
-		fail("Unhandled AST node type in dump_ast\n");
+		internal_error("Unhandled AST node type in dump_ast");
 	}
 }
 
-const Variable& Scope::find_variable(const std::string& name, bool allow_create)
+const Variable& Scope::find_variable(const Token& token, bool allow_create)
 {
 	for (const auto& v : local_variables)
 	{
-		if (v.name == name) return v;
+		if (v.name == token.data_str) return v;
 	}
 
 	if (allow_create)
@@ -61,7 +61,7 @@ const Variable& Scope::find_variable(const std::string& name, bool allow_create)
 		local_variables.emplace_back();
 		auto& v = local_variables.back();
 
-		v.name = name;
+		v.name = token.data_str;
 		if (local_variables.size() == 1)
 			v.stack_offset = 0;
 		else
@@ -71,6 +71,6 @@ const Variable& Scope::find_variable(const std::string& name, bool allow_create)
 	}
 	else
 	{
-		fail("Undefined variable!\n");
+		log_error(token, "Undefined variable");
 	}
 }

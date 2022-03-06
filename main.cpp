@@ -23,6 +23,8 @@ int main(int argc, char** argv)
     sstr << input_file.rdbuf();
     std::string str = sstr.str();
 
+    set_current_file(str.data());
+
 	std::vector<Token> tokens;
 	Lexer lexer(str);
 	lex(tokens, lexer);
@@ -35,7 +37,7 @@ int main(int argc, char** argv)
 
 	FILE* file_ptr = fopen("test.asm","w");
 	if (file_ptr == nullptr)
-		fail("Cannot open test.asm for writing!\n");
+		internal_error("Cannot open test.asm for writing!");
 
 	codegen(symbol_table, file_ptr);
 

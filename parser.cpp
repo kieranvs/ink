@@ -1,6 +1,44 @@
 #include "parser.h"
 
+#include "utils.h"
+
 #include <stack>
+
+const Token& Parser::peek()
+{
+	if (index >= input.size())
+	{
+		internal_error("Parser read past end of input data");
+	}
+
+	return input[index];
+}
+
+const Token& Parser::get()
+{
+	if (index >= input.size())
+	{
+		internal_error("Parser read past end of input data");
+	}
+
+	const Token& ret = input[index];
+	index += 1;
+	return ret;
+}
+
+const Token& Parser::get_if(TokenType type, const char* error_message)
+{
+	if (index >= input.size())
+		internal_error("Parser read past end of input data");
+
+	const Token& ret = input[index];
+	index += 1;
+
+	if (ret.type != type)
+		log_error(ret, error_message);
+
+	return ret;
+}
 
 size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index)
 {
@@ -62,14 +100,14 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			auto node = ast.make(AstNodeType::Variable);
 
 			auto& scope = symbol_table.scopes[scope_index];
-			auto& variable = scope.find_variable(next_token.data_str, false);
+			auto& variable = scope.find_variable(next_token, false);
 			ast[node].data_variable.offset = variable.stack_offset;
 
 			expr_nodes.push(node);
 		}
 		else
 		{
-			fail("Unexpected token in expression\n");
+			log_error(next_token, "Unexpected token in expression");
 		}
 	}
 
@@ -87,13 +125,13 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	if (ident_token.type == TokenType::Identifier)
 	{
 		auto& assign_token = parser.get();
-		if (assign_token.type != TokenType::Assign) fail("Invalid statement\n");
+		if (assign_token.type != TokenType::Assign) log_error(assign_token, "Invalid statement. Expected '='");
 
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto& variable = scope.find_variable(ident_token.data_str, true);
+		auto& variable = scope.find_variable(ident_token, true);
 		ast[var_node].data_variable.offset = variable.stack_offset;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
@@ -104,7 +142,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	}
 	else
 	{
-		fail("Invalid statement\n");
+		log_error(ident_token, "Invalid statement. Expected identifier");
 		return 0;
 	}
 }
@@ -165,6 +203,6 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 		if (parser.next_is(TokenType::KeywordFunctionDecl))
 			parse_function(parser, symbol_table);
 		else
-			fail("Unexpected token at top level\n");
+			log_error(parser.peek(), "Unexpected token at top level");
 	}
 }

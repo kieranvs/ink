@@ -1,5 +1,45 @@
 #include "lexer.h"
 
+#include "utils.h"
+
+char Lexer::peek()
+{
+	if (index >= input.size())
+	{
+		internal_error("Lexer read past end of input data");
+	}
+
+	return input[index];
+}
+
+char Lexer::get()
+{
+	if (index >= input.size())
+	{
+		internal_error("Lexer read past end of input data");
+	}
+
+	char ret = input[index];
+
+	index += 1;
+	update_line_col(ret);
+
+	return ret;
+}
+
+bool Lexer::get_if(char c)
+{
+	if (input[index] == c)
+	{
+		index += 1;
+		update_line_col(c);
+
+		return true;
+	}
+	else
+		return false;
+}
+
 bool valid_ident_start_char(char c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_');
@@ -22,6 +62,10 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 
 		tokens.emplace_back();
 		Token& new_token = tokens.back();
+		new_token.start_line = lexer.current_line;
+		new_token.start_col = lexer.current_col;
+		new_token.end_line = lexer.current_line;
+		new_token.end_col = lexer.current_col;
 
 		if (std::isdigit(lexer.peek()))
 		{
@@ -62,6 +106,9 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 		else if (lexer.get_if('}'))
 			new_token.type = TokenType::BraceRight;
 		else
-			fail("Unrecognised token\n");
+			log_error(new_token, "Unrecognised token");
+
+		new_token.end_line = lexer.current_line;
+		new_token.end_col = lexer.current_col;
 	}
 }
