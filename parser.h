@@ -16,6 +16,22 @@ struct Parser
 		return has_more() && input[index].type == type;
 	}
 
+	// Template this
+	bool next_is(TokenType t0, TokenType t1) const
+	{
+		return input.size() > index + 1 &&
+			   input[index].type == t0 &&
+			   input[index + 1].type == t1;
+	}
+
+	bool next_is(TokenType t0, TokenType t1, TokenType t2) const
+	{
+		return input.size() > index + 2 &&
+			   input[index].type == t0 &&
+			   input[index + 1].type == t1 &&
+			   input[index + 2].type == t2;
+	}
+
 	bool has_more() const
 	{
 		return input.size() > index;

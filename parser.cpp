@@ -121,11 +121,35 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index)
 {
-	auto& ident_token = parser.get();
-	if (ident_token.type == TokenType::Identifier)
+	// Assignment to existing variable
+	if (parser.next_is(TokenType::Identifier, TokenType::Assign))
 	{
+		auto& ident_token = parser.get();
 		auto& assign_token = parser.get();
-		if (assign_token.type != TokenType::Assign) log_error(assign_token, "Invalid statement. Expected '='");
+
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
+		size_t var_node = ast.make(AstNodeType::Variable);
+
+		auto& scope = symbol_table.scopes[scope_index];
+		auto& variable = scope.find_variable(ident_token, false);
+		ast[var_node].data_variable.offset = variable.stack_offset;
+
+		size_t assign_node = ast.make(AstNodeType::Assignment);
+		ast[assign_node].child0 = var_node;
+		ast[assign_node].child1 = expr_node;
+
+		return assign_node;
+	}
+	// Assignment to new variable
+	else if (parser.next_is(TokenType::Identifier, TokenType::Identifier, TokenType::Assign))
+	{
+		auto& type_token = parser.get();
+		auto& ident_token = parser.get();
+		auto& assign_token = parser.get();
+
+		// For now, only support int type
+		if (type_token.data_str != "int")
+			log_error(type_token, "Unknown type");
 
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
 		size_t var_node = ast.make(AstNodeType::Variable);
@@ -142,7 +166,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	}
 	else
 	{
-		log_error(ident_token, "Invalid statement. Expected identifier");
+		log_error(parser.peek(), "Invalid statement, expected variable or type");
 		return 0;
 	}
 }
@@ -165,7 +189,11 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	symbol_table.scopes.emplace_back();
 	size_t scope = symbol_table.scopes.size() - 1;
 
-	if (parser.has_more())
+	if (parser.next_is(TokenType::BraceRight))
+	{
+		parser.get();
+	}
+	else if (parser.has_more())
 	{
 		func.ast[func_node].next = parse_statement(parser, func.ast, symbol_table, scope);
 		size_t prev_node = func.ast[func_node].next.value();
