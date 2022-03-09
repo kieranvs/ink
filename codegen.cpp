@@ -50,6 +50,10 @@ void codegen_ast(Ast& ast, FILE* file, size_t index)
 		fprintf(file, "    leave\n");
 		fprintf(file, "    ret\n");
 	}
+	else if (ast[index].type == AstNodeType::Return)
+	{
+		codegen_ast(ast, file, ast[index].child0);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in code gen");

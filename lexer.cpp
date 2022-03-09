@@ -80,9 +80,9 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			auto identifier_string = lexer.get_while(valid_ident_char);
 
 			if (identifier_string == "fn")
-			{
 				new_token.type = TokenType::KeywordFunctionDecl;
-			}
+			else if (identifier_string == "return")
+				new_token.type = TokenType::KeywordReturn;
 			else
 			{
 				new_token.type = TokenType::Identifier;

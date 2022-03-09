@@ -33,6 +33,11 @@ void dump_ast(Ast& ast, size_t index, int indent)
 		if (ast[index].next.has_value())
 			dump_ast(ast, ast[index].next.value(), indent);
 	}
+	else if (ast[index].type == AstNodeType::Return)
+	{
+		printf("return\n");
+		dump_ast(ast, ast[index].child0, indent + 1);
+	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
 		printf("Variable %d\n", ast[index].data_variable.offset);

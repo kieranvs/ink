@@ -17,6 +17,7 @@ enum class AstNodeType
 	BinOpMul,
 	Variable,
 	Assignment,
+	Return,
 	FunctionDefinition
 };
 

@@ -111,10 +111,18 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		}
 	}
 
+	if (!parser.has_more())
+		log_error("Unexpected end of expression");
+
+	auto& end_of_expr_token = parser.peek();
+
 	while (parser.next_is(TokenType::StatementEnd)) parser.get();
 
 	while (!operators.empty())
 		apply_op();
+
+	if (expr_nodes.empty())
+		log_error(end_of_expr_token, "Empty expression");
 
 	return expr_nodes.top();
 }
@@ -163,6 +171,18 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		ast[assign_node].child1 = expr_node;
 
 		return assign_node;
+	}
+	// Return
+	else if (parser.next_is(TokenType::KeywordReturn))
+	{
+		auto& return_token = parser.get();
+
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
+
+		size_t return_node = ast.make(AstNodeType::Return);
+		ast[return_node].child0 = expr_node;
+
+		return return_node;
 	}
 	else
 	{
