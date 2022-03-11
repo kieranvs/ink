@@ -129,6 +129,9 @@ int main()
 	add_test("../tests/local-variables/3", 0, "9\n");
 	add_test("../tests/local-variables/4", 0, "6\n");
 
+	add_test("../tests/functions/declaration-1", 0, "1\n");
+	add_test("../tests/functions/declaration-2", 0, "2\n");
+
 	add_test("../tests/errors-syntax/incomplete-expression-1", 101);
 	add_test("../tests/errors-syntax/incomplete-expression-2", 101);
 	add_test("../tests/errors-syntax/incomplete-expression-3", 101);
@@ -138,7 +141,9 @@ int main()
 	add_test("../tests/errors-syntax/assignment-to-literal", 101);
 
 	add_test("../tests/errors/no-main-function", 101);
-	add_test("../tests/errors/undefined-variable", 101);
+	add_test("../tests/errors/undefined-variable-1", 101);
+	add_test("../tests/errors/undefined-variable-2", 101);
+	add_test("../tests/errors/variable-use-in-defining-statement", 101);
 	add_test("../tests/errors/redefined-variable", 101);
 	add_test("../tests/errors/redefined-function", 101);
 

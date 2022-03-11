@@ -1,0 +1,9 @@
+fn foo()
+{
+    return 12;
+}
+
+fn main()
+{
+    return 2;
+}

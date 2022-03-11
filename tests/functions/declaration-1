@@ -1,0 +1,9 @@
+fn main()
+{
+    return 1;
+}
+
+fn foo()
+{
+    return 89;
+}
