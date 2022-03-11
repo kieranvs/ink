@@ -18,6 +18,10 @@ int main(int argc, char** argv)
 {
 	std::ifstream input_file;
     input_file.open(argv[1]);
+    if (input_file.fail())
+    {
+		internal_error("Cannot open input file");
+    }
 
     std::stringstream sstr;
     sstr << input_file.rdbuf();
