@@ -52,25 +52,9 @@ struct Lexer
 		return input.substr(start_index, index - start_index);
 	}
 
-	bool has_more() const
-	{
-		return input.size() > index;
-	}
-
-	void update_line_col(char c)
-	{
-		if (c == '\n')
-		{
-			current_line += 1;
-			current_col = 1;
-		}
-		else if (c == '\t')
-		{
-			current_col += 8;
-		}
-		else
-			current_col += 1;
-	}
+	bool has_more() const;
+	bool next_matches(const char* pattern) const;
+	void update_line_col(char c);
 
 	const std::string& input;
 	size_t index = 0;

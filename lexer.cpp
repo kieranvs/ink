@@ -2,6 +2,8 @@
 
 #include "utils.h"
 
+#include <cstring>
+
 char Lexer::peek()
 {
 	if (index >= input.size())
@@ -40,6 +42,38 @@ bool Lexer::get_if(char c)
 		return false;
 }
 
+bool Lexer::has_more() const
+{
+	return input.size() > index;
+}
+
+bool Lexer::next_matches(const char* pattern) const
+{
+	int pattern_length = strlen(pattern);
+	if (input.size() < index + pattern_length) return false;
+
+	for (int i = 0; i < pattern_length; i++)
+		if (input[index + i] != pattern[i])
+			return false;
+
+	return true;
+}
+
+void Lexer::update_line_col(char c)
+{
+	if (c == '\n')
+	{
+		current_line += 1;
+		current_col = 1;
+	}
+	else if (c == '\t')
+	{
+		current_col += 8;
+	}
+	else
+		current_col += 1;
+}
+
 bool valid_ident_start_char(char c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_');
@@ -54,12 +88,20 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 {
 	while (lexer.has_more())
 	{
+		// Patterns which don't produce tokens first
 		if (std::isspace(lexer.peek()))
 		{
 			lexer.get();
 			continue;
 		}
+		else if (lexer.next_matches("//"))
+		{
+			while (lexer.has_more() && lexer.peek() != '\n')
+				lexer.get();
+			continue;
+		}
 
+		// Patterns which do produce tokens next
 		tokens.emplace_back();
 		Token& new_token = tokens.back();
 		new_token.start_line = lexer.current_line;

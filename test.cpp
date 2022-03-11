@@ -137,6 +137,9 @@ int main()
 	add_test("../tests/functions/call-4", 0, "48\n");
 	add_test("../tests/functions/call-5", 0, "64\n");
 
+	add_test("../tests/comments/1", 0, "20\n");
+	add_test("../tests/comments/2", 0, "20\n");
+
 	add_test("../tests/errors-syntax/incomplete-expression-1", 101);
 	add_test("../tests/errors-syntax/incomplete-expression-2", 101);
 	add_test("../tests/errors-syntax/incomplete-expression-3", 101);
