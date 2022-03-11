@@ -15,3 +15,9 @@ add_executable(
 	parser.cpp
 	utils.cpp
 )
+
+# ======== Testing ========
+add_executable(
+	testing
+	test.cpp
+)

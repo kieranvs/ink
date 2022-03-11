@@ -13,13 +13,13 @@ void set_current_file(const char* src)
 void internal_error(const char* message)
 {
 	printf("%s\n", message);
-	exit(-1);
+	exit(1);
 }
 
 void log_error(const char* message)
 {
 	printf("%s\n", message);
-	exit(-1);
+	exit(101);
 }
 
 void log_error(const Token& token, const char* message)
@@ -61,5 +61,5 @@ void log_error(const Token& token, const char* message)
 	printf("\n");
 
 	printf("%s\n", message);
-	exit(-1);
+	exit(101);
 }
