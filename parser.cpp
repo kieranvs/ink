@@ -58,6 +58,9 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 	auto apply_op = [&operators, &expr_nodes, &ast]()
 	{
 		auto& top = operators.top();
+
+		if (expr_nodes.size() < 2)
+			log_error("Missing operand for binary operator");
 		
 		size_t expr0 = expr_nodes.top();
 		expr_nodes.pop();
