@@ -21,3 +21,4 @@ add_executable(
 	testing
 	test.cpp
 )
+add_dependencies(testing compiler)
