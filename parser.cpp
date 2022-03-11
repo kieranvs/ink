@@ -100,13 +100,26 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		}
 		else if (next_token.type == TokenType::Identifier)
 		{
-			auto node = ast.make(AstNodeType::Variable);
-
 			auto& scope = symbol_table.scopes[scope_index];
-			auto& variable = scope.find_variable(next_token, false);
-			ast[node].data_variable.offset = variable.stack_offset;
 
-			expr_nodes.push(node);
+			if (auto variable = scope.find_variable(next_token.data_str, false))
+			{
+				auto node = ast.make(AstNodeType::Variable);
+				ast[node].data_variable.offset = variable->stack_offset;
+				expr_nodes.push(node);
+			}
+			else if (auto function = symbol_table.find_function(next_token.data_str))
+			{
+				parser.get_if(TokenType::ParenthesisLeft, "Missing argument list");
+				parser.get_if(TokenType::ParenthesisRight, "Missing argument list");
+				auto node = ast.make(AstNodeType::FunctionCall);
+				ast[node].data_function_call.function_index = function.value();
+				expr_nodes.push(node);
+			}
+			else
+			{
+				log_error(next_token, "Undefined variable");
+			}
 		}
 		else
 		{
@@ -142,8 +155,11 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto& variable = scope.find_variable(ident_token, false);
-		ast[var_node].data_variable.offset = variable.stack_offset;
+		auto variable = scope.find_variable(ident_token.data_str, false);
+		if (!variable)
+			log_error(ident_token, "Undefined variable");
+
+		ast[var_node].data_variable.offset = variable->stack_offset;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
 		ast[assign_node].child0 = var_node;
@@ -166,8 +182,11 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto& variable = scope.find_variable(ident_token, true);
-		ast[var_node].data_variable.offset = variable.stack_offset;
+		auto variable = scope.find_variable(ident_token.data_str, true);
+		if (!variable)
+			internal_error("Failed to create new variable");
+
+		ast[var_node].data_variable.offset = variable->stack_offset;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
 		ast[assign_node].child0 = var_node;

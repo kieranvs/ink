@@ -1,0 +1,10 @@
+fn foo()
+{
+	return 32;
+}
+
+fn main()
+{
+	int x = foo() + foo();
+	return x;
+}

@@ -1,0 +1,9 @@
+fn foo()
+{
+	return 32;
+}
+
+fn main()
+{
+	return foo();
+}

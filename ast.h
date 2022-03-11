@@ -18,7 +18,8 @@ enum class AstNodeType
 	Variable,
 	Assignment,
 	Return,
-	FunctionDefinition
+	FunctionDefinition,
+	FunctionCall
 };
 
 struct AstNode
@@ -44,11 +45,17 @@ struct AstNode
 		int stack_size;
 	};
 
+	struct DataFunctionCall
+	{
+		size_t function_index;
+	};
+
 	union
 	{
 		DataLiteralInt data_literal_int;
 		DataVariable data_variable;
 		DataFunctionDefinition data_function_definition;
+		DataFunctionCall data_function_call;
 	};
 };
 
@@ -78,7 +85,7 @@ struct Scope
 	std::vector<Variable> local_variables;
 	std::optional<size_t> parent;
 
-	const Variable& find_variable(const Token& token, bool allow_create);
+	const Variable* find_variable(const std::string& name, bool create_if_missing);
 };
 
 struct Function
@@ -93,6 +100,8 @@ struct SymbolTable
 {
 	std::vector<Function> functions;
 	std::vector<Scope> scopes;
+
+	std::optional<size_t> find_function(const std::string& name);
 };
 
 void dump_ast(Ast& ast, size_t index = 0, int indent = 0);

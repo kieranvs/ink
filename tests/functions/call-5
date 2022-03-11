@@ -1,0 +1,15 @@
+fn foo()
+{
+	return 32;
+}
+
+fn goo()
+{
+	return 2 * foo();
+}
+
+fn main()
+{
+	int x = goo();
+	return x;
+}

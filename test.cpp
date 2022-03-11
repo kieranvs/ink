@@ -131,6 +131,11 @@ int main()
 
 	add_test("../tests/functions/declaration-1", 0, "1\n");
 	add_test("../tests/functions/declaration-2", 0, "2\n");
+	add_test("../tests/functions/call-1", 0, "32\n");
+	add_test("../tests/functions/call-2", 0, "64\n");
+	add_test("../tests/functions/call-3", 0, "32\n");
+	add_test("../tests/functions/call-4", 0, "48\n");
+	add_test("../tests/functions/call-5", 0, "64\n");
 
 	add_test("../tests/errors-syntax/incomplete-expression-1", 101);
 	add_test("../tests/errors-syntax/incomplete-expression-2", 101);
@@ -139,6 +144,7 @@ int main()
 	add_test("../tests/errors-syntax/invalid-function-declaration", 101);
 	add_test("../tests/errors-syntax/unrecognised-token", 101);
 	add_test("../tests/errors-syntax/assignment-to-literal", 101);
+	add_test("../tests/errors-syntax/missing-function-arguments", 101);
 
 	add_test("../tests/errors/no-main-function", 101);
 	add_test("../tests/errors/undefined-variable-1", 101);

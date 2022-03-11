@@ -48,34 +48,49 @@ void dump_ast(Ast& ast, size_t index, int indent)
 		if (ast[index].next.has_value())
 			dump_ast(ast, ast[index].next.value(), indent + 1);
 	}
+	else if (ast[index].type == AstNodeType::FunctionCall)
+	{
+		printf("Function call %d\n", ast[index].data_function_call.function_index);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in dump_ast");
 	}
 }
 
-const Variable& Scope::find_variable(const Token& token, bool allow_create)
+const Variable* Scope::find_variable(const std::string& name, bool create_if_missing)
 {
 	for (const auto& v : local_variables)
 	{
-		if (v.name == token.data_str) return v;
+		if (v.name == name) return &v;
 	}
 
-	if (allow_create)
+	if (create_if_missing)
 	{
 		local_variables.emplace_back();
 		auto& v = local_variables.back();
 
-		v.name = token.data_str;
+		v.name = name;
 		if (local_variables.size() == 1)
 			v.stack_offset = 0;
 		else
 			v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + 4;
 
-		return v;
+		return &v;
 	}
 	else
 	{
-		log_error(token, "Undefined variable");
+		return nullptr;
 	}
+}
+
+std::optional<size_t> SymbolTable::find_function(const std::string& name)
+{
+	for (size_t i = 0; i < functions.size(); i++)
+	{
+		if (functions[i].name == name)
+			return i;
+	}
+
+	return std::nullopt;
 }

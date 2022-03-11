@@ -1,0 +1,16 @@
+fn foo()
+{
+	return 32;
+}
+
+fn goo()
+{
+	return 16;
+}
+
+fn main()
+{
+	int x = foo();
+	int y = goo();
+	return x + y;
+}
