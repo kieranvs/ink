@@ -1,3 +1,5 @@
+// @test error
+
 fn foo()
 {
 	return 4;

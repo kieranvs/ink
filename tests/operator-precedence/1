@@ -1,3 +1,5 @@
+// @test 23
+
 fn main()
 {
     int x = 3 + 4 * 5;

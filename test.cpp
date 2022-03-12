@@ -2,11 +2,13 @@
 #include <cstdio>
 #include <cstring>
 
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 int exec_process(const char* cmd, std::string& output)
 {
@@ -106,62 +108,68 @@ bool run_test(const char* input_file, int expected_error, const char* expected_o
 
 struct TestData
 {
-	const char* source_file;
+	std::string source_file;
 	int expected_error;
-	const char* expected_output;
+	std::string expected_output;
 };
 
 int main()
 {
 	std::vector<TestData> tests;
-	auto add_test = [&tests](const char* src, int error, const char* output="")
+	auto add_test = [&tests](const std::string& src, int error, const std::string& output = "")
 	{
 		tests.push_back({ src, error, output });
 	};
 
-	add_test("../tests/operator-precedence/1", 0, "23\n");
-	add_test("../tests/operator-precedence/2", 0, "17\n");
-	add_test("../tests/operator-precedence/3", 0, "42\n");
-	add_test("../tests/operator-precedence/4", 0, "29\n");
+	std::string keyword = "@test ";
+	for (auto const& dir_entry : std::filesystem::recursive_directory_iterator("../tests"))
+	{
+		if (!dir_entry.is_regular_file()) continue;
 
-	add_test("../tests/local-variables/1", 0, "8\n");
-	add_test("../tests/local-variables/2", 0, "8\n");
-	add_test("../tests/local-variables/3", 0, "9\n");
-	add_test("../tests/local-variables/4", 0, "6\n");
+		std::ifstream input_file;
+		input_file.open(dir_entry.path());
+		if (input_file.fail())
+		{
+			printf("Couldn't open %s\n", dir_entry.path().c_str());
+			continue;
+		}
 
-	add_test("../tests/functions/declaration-1", 0, "1\n");
-	add_test("../tests/functions/declaration-2", 0, "2\n");
-	add_test("../tests/functions/call-1", 0, "32\n");
-	add_test("../tests/functions/call-2", 0, "64\n");
-	add_test("../tests/functions/call-3", 0, "32\n");
-	add_test("../tests/functions/call-4", 0, "48\n");
-	add_test("../tests/functions/call-5", 0, "64\n");
+		std::stringstream sstr;
+		sstr << input_file.rdbuf();
+		std::string str = sstr.str();
 
-	add_test("../tests/comments/1", 0, "20\n");
-	add_test("../tests/comments/2", 0, "20\n");
+		auto index = str.find(keyword);
+		if (index == std::string::npos)
+		{
+			printf("Missing test information in %s\n", dir_entry.path().c_str());
+			continue;
+		}
 
-	add_test("../tests/errors-syntax/incomplete-expression-1", 101);
-	add_test("../tests/errors-syntax/incomplete-expression-2", 101);
-	add_test("../tests/errors-syntax/incomplete-expression-3", 101);
-	add_test("../tests/errors-syntax/invalid-expression", 101);
-	add_test("../tests/errors-syntax/invalid-function-declaration", 101);
-	add_test("../tests/errors-syntax/unrecognised-token", 101);
-	add_test("../tests/errors-syntax/assignment-to-literal", 101);
-	add_test("../tests/errors-syntax/missing-function-arguments", 101);
+		auto end_line = str.find("\n", index);
+		if (end_line == std::string::npos)
+		{
+			printf("Error parsing test information in %s\n", dir_entry.path().c_str());
+			continue;
+		}
 
-	add_test("../tests/errors/no-main-function", 101);
-	add_test("../tests/errors/undefined-variable-1", 101);
-	add_test("../tests/errors/undefined-variable-2", 101);
-	add_test("../tests/errors/variable-use-in-defining-statement", 101);
-	add_test("../tests/errors/redefined-variable", 101);
-	add_test("../tests/errors/redefined-function", 101);
+		auto line_str = str.substr(index + keyword.length(), end_line - index - keyword.length());
+		if (line_str == "error")
+		{
+			add_test(dir_entry.path(), 101);
+		}
+		else
+		{
+			std::string expected_output = line_str + "\n";
+			add_test(dir_entry.path(), 0, expected_output);
+		}
+	}
 
 	auto num_tests = tests.size();
 	size_t num_pass = 0;
 	for (int i = 0; i < num_tests; i++)
 	{
 		printf("[%d/%d] ", i + 1, num_tests);
-		bool pass = run_test(tests[i].source_file, tests[i].expected_error, tests[i].expected_output);
+		bool pass = run_test(tests[i].source_file.c_str(), tests[i].expected_error, tests[i].expected_output.c_str());
 		if (pass)
 			num_pass += 1;
 	}

@@ -1,3 +1,5 @@
+// @test error
+
 fn main()
 {
 	return foo;

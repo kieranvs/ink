@@ -1,3 +1,5 @@
+// @test 20
+
 fn main()
 {
 	return 20;
