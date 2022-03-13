@@ -36,6 +36,12 @@ int main(int argc, char** argv)
 	Parser parser(tokens);
 
 	SymbolTable symbol_table;
+
+	symbol_table.functions.emplace_back();
+	auto& func = symbol_table.functions.back();
+	func.intrinsic = true;
+	func.parameters.push_back(0);
+	func.name = "print_uint32";
 	
 	parse_top_level(parser, symbol_table);
 

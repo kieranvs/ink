@@ -229,10 +229,15 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		return return_node;
 	}
+	// Expression
 	else
 	{
-		log_error(parser.peek(), "Invalid statement, expected variable or type");
-		return 0;
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
+
+		size_t expr_statement_node = ast.make(AstNodeType::ExpressionStatement);
+		ast[expr_statement_node].child0 = expr_node;
+
+		return expr_statement_node;
 	}
 }
 
@@ -245,6 +250,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	symbol_table.functions.emplace_back();
 	Function& func = symbol_table.functions.back();
 	func.name = func_ident_token.data_str;
+	func.intrinsic = false;
 	size_t func_index = symbol_table.functions.size() - 1;
 
 	size_t func_node = func.ast.make(AstNodeType::FunctionDefinition);

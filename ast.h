@@ -18,6 +18,7 @@ enum class AstNodeType
 	Variable,
 	Assignment,
 	Return,
+	ExpressionStatement,
 	FunctionDefinition,
 	FunctionCall,
 	FunctionCallArg,
@@ -97,6 +98,7 @@ struct Function
 	size_t ast_node_root;
 	std::string name;
 	std::vector<size_t> parameters;
+	bool intrinsic;
 };
 
 struct SymbolTable

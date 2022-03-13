@@ -50,6 +50,13 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		if (ast[index].next.has_value())
 			codegen_ast(ast, symbol_table, file, ast[index].next.value());
 	}
+	else if (ast[index].type == AstNodeType::ExpressionStatement)
+	{
+		codegen_ast(ast, symbol_table, file, ast[index].child0);
+
+		if (ast[index].next.has_value())
+			codegen_ast(ast, symbol_table, file, ast[index].next.value());
+	}
 	else if (ast[index].type == AstNodeType::FunctionDefinition)
 	{
 		fprintf(file, "    push rbp\n");
@@ -138,7 +145,8 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "; user code\n");
 	for (auto& func : symbol_table.functions)
 	{
-		codegen_function(func, symbol_table, file);
+		if (!func.intrinsic)
+			codegen_function(func, symbol_table, file);
 	}
 
 	fprintf(file, "; intrinsics\n");
