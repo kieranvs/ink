@@ -72,7 +72,7 @@ const Variable* Scope::find_variable(const std::string& name, bool create_if_mis
 
 		v.name = name;
 		if (local_variables.size() == 1)
-			v.stack_offset = 0;
+			v.stack_offset = 4;
 		else
 			v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + 4;
 

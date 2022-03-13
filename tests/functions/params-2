@@ -1,0 +1,12 @@
+// @test 7
+
+fn foo(int x)
+{
+	int y = 3;
+	return x + y;
+}
+
+fn main()
+{
+	return foo(4);
+}

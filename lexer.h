@@ -16,7 +16,8 @@ enum class TokenType
 	OperatorMultiply,
 	Identifier,
 	Assign,
-	StatementEnd
+	StatementEnd,
+	Comma
 };
 
 struct Token

@@ -40,7 +40,7 @@ const Token& Parser::get_if(TokenType type, const char* error_message)
 	return ret;
 }
 
-size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index)
+size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token)
 {
 	std::stack<size_t> expr_nodes;
 	std::stack<Token> operators;
@@ -80,7 +80,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		operators.pop();
 	};
 
-	while (parser.has_more() && !parser.next_is(TokenType::StatementEnd))
+	while (parser.has_more() && !parser.next_is(end_token))
 	{
 		auto& next_token = parser.get();
 		if (next_token.type == TokenType::LiteralInteger)
@@ -110,11 +110,34 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			}
 			else if (auto function = symbol_table.find_function(next_token.data_str))
 			{
+				auto& function_ref = symbol_table.functions[function.value()];
+
+				auto func_call_node = ast.make(AstNodeType::FunctionCall);
+				ast[func_call_node].data_function_call.function_index = function.value();
+				expr_nodes.push(func_call_node);
+
 				parser.get_if(TokenType::ParenthesisLeft, "Missing argument list");
-				parser.get_if(TokenType::ParenthesisRight, "Missing argument list");
-				auto node = ast.make(AstNodeType::FunctionCall);
-				ast[node].data_function_call.function_index = function.value();
-				expr_nodes.push(node);
+
+				size_t prev_arg_node;
+				for (int i = 0; i < function_ref.parameters.size(); i++)
+				{
+					auto end_token = (i == function_ref.parameters.size() - 1) ? TokenType::ParenthesisRight : TokenType::Comma;
+					auto arg_expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
+					auto arg_node = ast.make(AstNodeType::FunctionCallArg);
+					ast[arg_node].child0 = arg_expr_node;
+
+					if (i == 0)
+						ast[func_call_node].child0 = arg_node;
+					else
+						ast[prev_arg_node].next = arg_node;
+
+					prev_arg_node = arg_node;
+				}
+
+				// parse_expression consumes the end token while processing
+				// the last parameter
+				if (function_ref.parameters.size() == 0)
+					parser.get_if(TokenType::ParenthesisRight, "Expected )");
 			}
 			else
 			{
@@ -130,9 +153,9 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 	if (!parser.has_more())
 		log_error("Unexpected end of expression");
 
-	auto& end_of_expr_token = parser.peek();
-
-	while (parser.next_is(TokenType::StatementEnd)) parser.get();
+	auto& end_of_expr_token = parser.get();
+	if (end_of_expr_token.type != end_token)
+		internal_error("Expected end token");
 
 	while (!operators.empty())
 		apply_op();
@@ -151,7 +174,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& ident_token = parser.get();
 		auto& assign_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
@@ -178,7 +201,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		if (type_token.data_str != "int")
 			log_error(type_token, "Unknown type");
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
@@ -199,7 +222,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	{
 		auto& return_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
 
 		size_t return_node = ast.make(AstNodeType::Return);
 		ast[return_node].child0 = expr_node;
@@ -218,18 +241,59 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	parser.get_if(TokenType::KeywordFunctionDecl, "Invalid function declaration");
 	auto& func_ident_token = parser.get_if(TokenType::Identifier, "Expected function name");
 	parser.get_if(TokenType::ParenthesisLeft, "Expected (");
-	parser.get_if(TokenType::ParenthesisRight, "Expected )");
-	parser.get_if(TokenType::BraceLeft, "Expected {");
 
 	symbol_table.functions.emplace_back();
 	Function& func = symbol_table.functions.back();
 	func.name = func_ident_token.data_str;
+	size_t func_index = symbol_table.functions.size() - 1;
 
 	size_t func_node = func.ast.make(AstNodeType::FunctionDefinition);
 	func.ast_node_root = func_node;
 
 	symbol_table.scopes.emplace_back();
 	size_t scope = symbol_table.scopes.size() - 1;
+
+	while (true)
+	{
+		if (!parser.has_more())
+			log_error("Invalid function declaration");
+
+		if (parser.next_is(TokenType::Identifier, TokenType::Identifier))
+		{
+			auto& type_token = parser.get();
+			auto& ident_token = parser.get();
+
+			// Create variable for the parameter
+			// For now, only support int type
+			if (type_token.data_str != "int")
+				log_error(type_token, "Unknown type");
+
+			auto variable = symbol_table.scopes[scope].find_variable(ident_token.data_str, true);
+			if (!variable)
+				internal_error("Failed to create new variable");
+
+			func.parameters.push_back(symbol_table.scopes[scope].local_variables.size() - 1);
+
+			if (parser.next_is(TokenType::Comma))
+				parser.get();
+			else if (parser.next_is(TokenType::ParenthesisRight))
+			{
+				parser.get();
+				break;
+			}
+		}
+		else if (parser.next_is(TokenType::ParenthesisRight))
+		{
+			parser.get();
+			break;
+		}
+		else
+		{
+			log_error(parser.peek(), "Unexpected token in function declaration");
+		}
+	}
+
+	parser.get_if(TokenType::BraceLeft, "Expected {");
 
 	if (parser.next_is(TokenType::BraceRight))
 	{
@@ -256,14 +320,15 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	int stack_size = 0;
 	for (auto& v : symbol_table.scopes[scope].local_variables)
 	{
-		if (stack_size < v.stack_offset + 4)
-			stack_size = v.stack_offset + 4;
+		if (stack_size < v.stack_offset)
+			stack_size = v.stack_offset;
 	}
 
 	if (stack_size % 16 != 0)
 		stack_size = ((stack_size / 16) + 1) * 16;
 
 	func.ast[func_node].data_function_definition.stack_size = stack_size;
+	func.ast[func_node].data_function_definition.function_index = func_index;
 }
 
 void parse_top_level(Parser& parser, SymbolTable& symbol_table)

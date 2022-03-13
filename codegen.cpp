@@ -2,6 +2,18 @@
 
 #include "utils.h"
 
+const char* register_for_parameter(int i, int b)
+{
+	     if (i == 0) return (b == 64) ? "rdi" : "edi";
+	else if (i == 1) return (b == 64) ? "rsi" : "esi";
+	else if (i == 2) return (b == 64) ? "rdx" : "edx";
+	else if (i == 3) return (b == 64) ? "rcx" : "ecx";
+	else if (i == 4) return (b == 64) ? "r8"  : "r8d";
+	else if (i == 5) return (b == 64) ? "r9"  : "r9d";
+	else
+		internal_error("Register overflow");
+}
+
 void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 {
 	if (ast[index].type == AstNodeType::None)
@@ -44,6 +56,16 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		fprintf(file, "    mov rbp, rsp\n");
 		fprintf(file, "    sub rsp, %d\n", ast[index].data_function_definition.stack_size);
 
+		auto func_index = ast[index].data_function_definition.function_index;
+		auto& func = symbol_table.functions[func_index];
+		auto& func_scope = symbol_table.scopes[func.scope];
+
+		for (int i = 0; i < func.parameters.size(); i++)
+		{
+			auto param_offset = func_scope.local_variables[func.parameters[i]].stack_offset;
+			fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_for_parameter(i, 32));
+		}
+
 		if (ast[index].next.has_value())
 			codegen_ast(ast, symbol_table, file, ast[index].next.value());
 
@@ -53,8 +75,23 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
 		auto func_index = ast[index].data_function_call.function_index;
-		auto& func_name = symbol_table.functions[func_index].name;
-		fprintf(file, "    call %s\n", func_name.c_str());
+		auto& func = symbol_table.functions[func_index];
+		auto& func_scope = symbol_table.scopes[func.scope];
+
+		if (func.parameters.size() != 0)
+		{
+			auto current_arg_node = ast[index].child0;
+
+			for (int i = 0; i < func.parameters.size(); i++)
+			{
+				codegen_ast(ast, symbol_table, file, ast[current_arg_node].child0);
+				fprintf(file, "    mov %s, rax\n", register_for_parameter(i, 64));
+
+				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
+			}
+		}
+
+		fprintf(file, "    call %s\n", func.name.c_str());
 	}
 	else if (ast[index].type == AstNodeType::Return)
 	{

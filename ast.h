@@ -19,7 +19,8 @@ enum class AstNodeType
 	Assignment,
 	Return,
 	FunctionDefinition,
-	FunctionCall
+	FunctionCall,
+	FunctionCallArg,
 };
 
 struct AstNode
@@ -42,6 +43,7 @@ struct AstNode
 
 	struct DataFunctionDefinition
 	{
+		size_t function_index;
 		int stack_size;
 	};
 
@@ -94,6 +96,7 @@ struct Function
 	Ast ast;
 	size_t ast_node_root;
 	std::string name;
+	std::vector<size_t> parameters;
 };
 
 struct SymbolTable

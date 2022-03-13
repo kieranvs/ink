@@ -1,0 +1,11 @@
+// @test error
+
+fn foo(int x, int x)
+{
+	return x;
+}
+
+fn main()
+{
+	return foo(4, 5);
+}
