@@ -102,7 +102,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		{
 			auto& scope = symbol_table.scopes[scope_index];
 
-			if (auto variable = scope.find_variable(next_token.data_str, false))
+			if (auto variable = scope.find_variable(next_token.data_str))
 			{
 				auto node = ast.make(AstNodeType::Variable);
 				ast[node].data_variable.offset = variable->stack_offset;
@@ -178,7 +178,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto variable = scope.find_variable(ident_token.data_str, false);
+		auto variable = scope.find_variable(ident_token.data_str);
 		if (!variable)
 			log_error(ident_token, "Undefined variable");
 
@@ -205,9 +205,9 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto variable = scope.find_variable(ident_token.data_str, true);
+		auto variable = scope.make_variable(ident_token.data_str);
 		if (!variable)
-			internal_error("Failed to create new variable");
+			log_error(ident_token, "Duplicate variable");
 
 		ast[var_node].data_variable.offset = variable->stack_offset;
 
@@ -247,6 +247,9 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	auto& func_ident_token = parser.get_if(TokenType::Identifier, "Expected function name");
 	parser.get_if(TokenType::ParenthesisLeft, "Expected (");
 
+	if (symbol_table.find_function(func_ident_token.data_str) != std::nullopt)
+		log_error(func_ident_token, "Redefined function");
+
 	symbol_table.functions.emplace_back();
 	Function& func = symbol_table.functions.back();
 	func.name = func_ident_token.data_str;
@@ -274,9 +277,9 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 			if (type_token.data_str != "int")
 				log_error(type_token, "Unknown type");
 
-			auto variable = symbol_table.scopes[scope].find_variable(ident_token.data_str, true);
+			auto variable = symbol_table.scopes[scope].make_variable(ident_token.data_str);
 			if (!variable)
-				internal_error("Failed to create new variable");
+				log_error(ident_token, "Duplicate parameter name");
 
 			func.parameters.push_back(symbol_table.scopes[scope].local_variables.size() - 1);
 
