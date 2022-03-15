@@ -42,6 +42,12 @@ int main(int argc, char** argv)
 	func.intrinsic = true;
 	func.parameters.push_back(0);
 	func.name = "print_uint32";
+
+	symbol_table.types.emplace_back();
+	auto& type = symbol_table.types.back();
+	type.intrinsic = true;
+	type.name = "int";
+	type.data_size = 8;
 	
 	parse_top_level(parser, symbol_table);
 

@@ -197,15 +197,16 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& ident_token = parser.get();
 		auto& assign_token = parser.get();
 
-		// For now, only support int type
-		if (type_token.data_str != "int")
-			log_error(type_token, "Unknown type");
-
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto variable = scope.make_variable(ident_token.data_str);
+
+		auto type_index = symbol_table.find_type(type_token.data_str);
+		if (!type_index.has_value())
+			log_error(type_token, "Unknown type");
+
+		auto variable = scope.make_variable(symbol_table, ident_token.data_str, type_index.value());
 		if (!variable)
 			log_error(ident_token, "Duplicate variable");
 
@@ -273,11 +274,11 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 			auto& ident_token = parser.get();
 
 			// Create variable for the parameter
-			// For now, only support int type
-			if (type_token.data_str != "int")
+			auto type_index = symbol_table.find_type(type_token.data_str);
+			if (!type_index.has_value())
 				log_error(type_token, "Unknown type");
 
-			auto variable = symbol_table.scopes[scope].make_variable(ident_token.data_str);
+			auto variable = symbol_table.scopes[scope].make_variable(symbol_table, ident_token.data_str, type_index.value());
 			if (!variable)
 				log_error(ident_token, "Duplicate parameter name");
 

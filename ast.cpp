@@ -68,7 +68,7 @@ const Variable* Scope::find_variable(const std::string& name)
 	return nullptr;
 }
 
-const Variable* Scope::make_variable(const std::string& name)
+const Variable* Scope::make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index)
 {
 	for (const auto& v : local_variables)
 	{
@@ -76,14 +76,17 @@ const Variable* Scope::make_variable(const std::string& name)
 		if (v.name == name) return nullptr;
 	}
 
+	auto& type = symbol_table.types[type_index];
+
 	local_variables.emplace_back();
 	auto& v = local_variables.back();
 
 	v.name = name;
+	v.type_index = type_index;
 	if (local_variables.size() == 1)
-		v.stack_offset = 4;
+		v.stack_offset = type.data_size;
 	else
-		v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + 4;
+		v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + type.data_size;
 
 	return &v;
 }
@@ -93,6 +96,17 @@ std::optional<size_t> SymbolTable::find_function(const std::string& name)
 	for (size_t i = 0; i < functions.size(); i++)
 	{
 		if (functions[i].name == name)
+			return i;
+	}
+
+	return std::nullopt;
+}
+
+std::optional<size_t> SymbolTable::find_type(const std::string& name)
+{
+	for (size_t i = 0; i < types.size(); i++)
+	{
+		if (types[i].name == name)
 			return i;
 	}
 

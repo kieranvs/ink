@@ -38,14 +38,14 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		fprintf(file, "    mov eax, [rbp - %d]\n", ast[index].data_variable.offset);
+		fprintf(file, "    mov rax, [rbp - %d]\n", ast[index].data_variable.offset);
 	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
 		codegen_ast(ast, symbol_table, file, ast[index].child1);
 
 		auto variable_node = ast[index].child0;
-		fprintf(file, "    mov [rbp - %d], eax\n", ast[variable_node].data_variable.offset);
+		fprintf(file, "    mov [rbp - %d], rax\n", ast[variable_node].data_variable.offset);
 
 		if (ast[index].next.has_value())
 			codegen_ast(ast, symbol_table, file, ast[index].next.value());

@@ -81,7 +81,17 @@ struct Variable
 {
 	uint32_t stack_offset;
 	std::string name;
+	size_t type_index;
 };
+
+struct Type
+{
+	std::string name;
+	bool intrinsic;
+	size_t data_size;
+};
+
+struct SymbolTable;
 
 struct Scope
 {
@@ -89,7 +99,7 @@ struct Scope
 	std::optional<size_t> parent;
 
 	const Variable* find_variable(const std::string& name);
-	const Variable* make_variable(const std::string& name);
+	const Variable* make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index);
 };
 
 struct Function
@@ -106,8 +116,10 @@ struct SymbolTable
 {
 	std::vector<Function> functions;
 	std::vector<Scope> scopes;
+	std::vector<Type> types;
 
 	std::optional<size_t> find_function(const std::string& name);
+	std::optional<size_t> find_type(const std::string& name);
 };
 
 void dump_ast(Ast& ast, size_t index = 0, int indent = 0);
