@@ -2,14 +2,44 @@
 
 #include "utils.h"
 
-const char* register_for_parameter(int i, int b)
+const char* register_name_data[] =
 {
-	     if (i == 0) return (b == 64) ? "rdi" : "edi";
-	else if (i == 1) return (b == 64) ? "rsi" : "esi";
-	else if (i == 2) return (b == 64) ? "rdx" : "edx";
-	else if (i == 3) return (b == 64) ? "rcx" : "ecx";
-	else if (i == 4) return (b == 64) ? "r8"  : "r8d";
-	else if (i == 5) return (b == 64) ? "r9"  : "r9d";
+	 "al", "ax", "eax", "rax",
+	 "bl", "bx", "ebx", "rbx",
+	 "cl", "cx", "ecx", "rcx",
+	 "dl", "dx", "edx", "rdx",
+	"sil", "si", "esi", "rsi",
+	"dil", "di", "edi", "rdi",
+	"bpl", "bp", "ebp", "rbp",
+	"spl", "sp", "esp", "rsp",
+	"r8b", "r8w", "r8d", "r8",
+	"r9b", "r9w", "r9d", "r9",
+	"r10b", "r10w", "r10d", "r10",
+	"r11b", "r11w", "r11d", "r11",
+	"r12b", "r12w", "r12d", "r12",
+	"r13b", "r13w", "r13d", "r13",
+	"r14b", "r14w", "r14d", "r14",
+	"r15b", "r15w", "r15d", "r15"
+};
+
+const char* register_name(int reg, int bytes)
+{
+	     if (bytes == 1) return register_name_data[reg * 4 + 0];
+	else if (bytes == 2) return register_name_data[reg * 4 + 1];
+	else if (bytes == 4) return register_name_data[reg * 4 + 2];
+	else if (bytes == 8) return register_name_data[reg * 4 + 3];
+	else
+		internal_error("Invalid register name request");
+}
+
+int register_for_parameter(int i)
+{
+         if (i == 0) return 5;
+	else if (i == 1) return 4;
+	else if (i == 2) return 3;
+	else if (i == 3) return 2;
+	else if (i == 4) return 8;
+	else if (i == 5) return 9;
 	else
 		internal_error("Register overflow");
 }
@@ -19,33 +49,48 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 	if (ast[index].type == AstNodeType::None)
 		return;
 	else if (ast[index].type == AstNodeType::LiteralInt)
-		fprintf(file, "    mov rax, %d\n", ast[index].data_literal_int.value);
+		fprintf(file, "    mov %s, %d\n", register_name(0, 8), ast[index].data_literal_int.value);
+	else if (ast[index].type == AstNodeType::LiteralBool)
+	{
+		if (ast[index].data_literal_bool.value)
+			fprintf(file, "    mov %s, %d\n", register_name(0, 1), 1);
+		else
+			fprintf(file, "    mov %s, %d\n", register_name(0, 1), 0);
+	}
 	else if (ast[index].type == AstNodeType::BinOpAdd)
 	{
 		codegen_ast(ast, symbol_table, file, ast[index].child0);
-		fprintf(file, "    push rax\n");
+		fprintf(file, "    push %s\n", register_name(0, 8));
 		codegen_ast(ast, symbol_table, file, ast[index].child1);
-		fprintf(file, "    pop rbx\n");
-		fprintf(file, "    add rax, rbx\n");
+		fprintf(file, "    pop %s\n", register_name(2, 8));
+		fprintf(file, "    add %s, %s\n", register_name(0, 8), register_name(2, 8));
 	}
 	else if (ast[index].type == AstNodeType::BinOpMul)
 	{
 		codegen_ast(ast, symbol_table, file, ast[index].child0);
-		fprintf(file, "    push rax\n");
+		fprintf(file, "    push %s\n", register_name(0, 8));
 		codegen_ast(ast, symbol_table, file, ast[index].child1);
-		fprintf(file, "    pop rbx\n");
-		fprintf(file, "    mul rbx\n");
+		fprintf(file, "    pop %s\n", register_name(2, 8));
+		fprintf(file, "    mul %s\n", register_name(2, 8));
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		fprintf(file, "    mov rax, [rbp - %d]\n", ast[index].data_variable.offset);
+		auto& scope = symbol_table.scopes[ast[index].data_variable.scope_index];
+		auto& variable = scope.local_variables[ast[index].data_variable.variable_index];
+		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = type.data_size;
+		fprintf(file, "    mov %s, [rbp - %d]\n", register_name(0, data_size), variable.stack_offset);
 	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
 		codegen_ast(ast, symbol_table, file, ast[index].child1);
 
 		auto variable_node = ast[index].child0;
-		fprintf(file, "    mov [rbp - %d], rax\n", ast[variable_node].data_variable.offset);
+		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
+		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
+		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = type.data_size;
+		fprintf(file, "    mov [rbp - %d], %s\n", variable.stack_offset, register_name(0, data_size));
 
 		if (ast[index].next.has_value())
 			codegen_ast(ast, symbol_table, file, ast[index].next.value());
@@ -70,7 +115,9 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		for (int i = 0; i < func.parameters.size(); i++)
 		{
 			auto param_offset = func_scope.local_variables[func.parameters[i]].stack_offset;
-			fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_for_parameter(i, 32));
+			auto var_type = func_scope.local_variables[func.parameters[i]].type_index;
+			auto data_size = symbol_table.types[var_type].data_size;
+			fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_name(register_for_parameter(i), data_size));
 		}
 
 		if (ast[index].next.has_value())
@@ -92,7 +139,7 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 			for (int i = 0; i < func.parameters.size(); i++)
 			{
 				codegen_ast(ast, symbol_table, file, ast[current_arg_node].child0);
-				fprintf(file, "    mov %s, rax\n", register_for_parameter(i, 64));
+				fprintf(file, "    mov %s, %s\n", register_name(register_for_parameter(i), 8), register_name(0, 8));
 
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}

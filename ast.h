@@ -13,6 +13,7 @@ enum class AstNodeType
 {
 	None,
 	LiteralInt,
+	LiteralBool,
 	BinOpAdd,
 	BinOpMul,
 	Variable,
@@ -37,9 +38,15 @@ struct AstNode
 		int value;
 	};
 
+	struct DataLiteralBool
+	{
+		bool value;
+	};
+
 	struct DataVariable
 	{
-		int offset;
+		size_t scope_index;
+		size_t variable_index;
 	};
 
 	struct DataFunctionDefinition
@@ -56,6 +63,7 @@ struct AstNode
 	union
 	{
 		DataLiteralInt data_literal_int;
+		DataLiteralBool data_literal_bool;
 		DataVariable data_variable;
 		DataFunctionDefinition data_function_definition;
 		DataFunctionCall data_function_call;
@@ -98,8 +106,8 @@ struct Scope
 	std::vector<Variable> local_variables;
 	std::optional<size_t> parent;
 
-	const Variable* find_variable(const std::string& name);
-	const Variable* make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index);
+	std::optional<size_t> find_variable(const std::string& name);
+	std::optional<size_t> make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index);
 };
 
 struct Function

@@ -89,6 +89,12 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
 		}
+		else if (next_token.type == TokenType::LiteralBool)
+		{
+			auto node = ast.make(AstNodeType::LiteralBool);
+			ast[node].data_literal_bool.value = next_token.data_bool;
+			expr_nodes.push(node);
+		}
 		else if (next_token.type == TokenType::OperatorPlus || next_token.type == TokenType::OperatorMultiply)
 		{
 			while (!operators.empty() && priority(operators.top()) > priority(next_token)) // or they are the same and next_token is left assoc
@@ -102,10 +108,11 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		{
 			auto& scope = symbol_table.scopes[scope_index];
 
-			if (auto variable = scope.find_variable(next_token.data_str))
+			if (auto variable_index = scope.find_variable(next_token.data_str))
 			{
 				auto node = ast.make(AstNodeType::Variable);
-				ast[node].data_variable.offset = variable->stack_offset;
+				ast[node].data_variable.variable_index = variable_index.value();
+				ast[node].data_variable.scope_index = scope_index;
 				expr_nodes.push(node);
 			}
 			else if (auto function = symbol_table.find_function(next_token.data_str))
@@ -178,11 +185,12 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
-		auto variable = scope.find_variable(ident_token.data_str);
-		if (!variable)
+		auto variable_index = scope.find_variable(ident_token.data_str);
+		if (!variable_index)
 			log_error(ident_token, "Undefined variable");
 
-		ast[var_node].data_variable.offset = variable->stack_offset;
+		ast[var_node].data_variable.variable_index = variable_index.value();
+		ast[var_node].data_variable.scope_index = scope_index;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
 		ast[assign_node].child0 = var_node;
@@ -206,11 +214,12 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		if (!type_index.has_value())
 			log_error(type_token, "Unknown type");
 
-		auto variable = scope.make_variable(symbol_table, ident_token.data_str, type_index.value());
-		if (!variable)
+		auto variable_index = scope.make_variable(symbol_table, ident_token.data_str, type_index.value());
+		if (!variable_index)
 			log_error(ident_token, "Duplicate variable");
 
-		ast[var_node].data_variable.offset = variable->stack_offset;
+		ast[var_node].data_variable.scope_index = scope_index;
+		ast[var_node].data_variable.variable_index = variable_index.value();
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
 		ast[assign_node].child0 = var_node;
@@ -278,11 +287,11 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 			if (!type_index.has_value())
 				log_error(type_token, "Unknown type");
 
-			auto variable = symbol_table.scopes[scope].make_variable(symbol_table, ident_token.data_str, type_index.value());
-			if (!variable)
+			auto variable_index = symbol_table.scopes[scope].make_variable(symbol_table, ident_token.data_str, type_index.value());
+			if (!variable_index)
 				log_error(ident_token, "Duplicate parameter name");
 
-			func.parameters.push_back(symbol_table.scopes[scope].local_variables.size() - 1);
+			func.parameters.push_back(variable_index.value());
 
 			if (parser.next_is(TokenType::Comma))
 				parser.get();

@@ -1,0 +1,12 @@
+// @test 1
+
+fn get_bool(bool b)
+{
+	return b;
+}
+
+fn main()
+{
+	bool b = get_bool(true);
+	return b;
+}

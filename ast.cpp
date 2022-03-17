@@ -40,7 +40,7 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		printf("Variable %d\n", ast[index].data_variable.offset);
+		printf("Variable %d\n", ast[index].data_variable.variable_index);
 	}
 	else if (ast[index].type == AstNodeType::FunctionDefinition)
 	{
@@ -58,22 +58,22 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	}
 }
 
-const Variable* Scope::find_variable(const std::string& name)
+std::optional<size_t> Scope::find_variable(const std::string& name)
 {
-	for (const auto& v : local_variables)
+	for (size_t i = 0; i < local_variables.size(); i++)
 	{
-		if (v.name == name) return &v;
+		if (local_variables[i].name == name) return i;
 	}
 
-	return nullptr;
+	return std::nullopt;
 }
 
-const Variable* Scope::make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index)
+std::optional<size_t> Scope::make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index)
 {
-	for (const auto& v : local_variables)
+	for (size_t i = 0; i < local_variables.size(); i++)
 	{
 		// Error condition
-		if (v.name == name) return nullptr;
+		if (local_variables[i].name == name) return std::nullopt;
 	}
 
 	auto& type = symbol_table.types[type_index];
@@ -88,7 +88,7 @@ const Variable* Scope::make_variable(SymbolTable& symbol_table, const std::strin
 	else
 		v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + type.data_size;
 
-	return &v;
+	return local_variables.size() - 1;
 }
 
 std::optional<size_t> SymbolTable::find_function(const std::string& name)

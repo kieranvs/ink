@@ -1,0 +1,8 @@
+// @test 30
+
+fn main()
+{
+	int b = 30;
+	bool a = true;
+	return b;
+}
