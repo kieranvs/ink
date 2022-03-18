@@ -8,18 +8,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ======== Compiler ========
 add_executable(
 	compiler
-	ast.cpp
-	codegen.cpp
-	lexer.cpp
-	main.cpp
-	parser.cpp
-	typecheck.cpp
-	utils.cpp
+	src/ast.cpp
+	src/codegen.cpp
+	src/lexer.cpp
+	src/main.cpp
+	src/parser.cpp
+	src/typecheck.cpp
+	src/utils.cpp
 )
 
 # ======== Testing ========
 add_executable(
 	testing
-	test.cpp
+	src/test.cpp
 )
 add_dependencies(testing compiler)
