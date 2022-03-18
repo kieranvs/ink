@@ -1,16 +1,16 @@
 // @test 64
 
-fn foo()
+fn foo() : int
 {
 	return 32;
 }
 
-fn goo()
+fn goo() : int
 {
 	return 2 * foo();
 }
 
-fn main()
+fn main() : int
 {
 	int x = goo();
 	return x;

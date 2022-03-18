@@ -1,11 +1,11 @@
 // @test error
 
-fn foo(int x, int y)
+fn foo(int x, int y) : int
 {
 	return x + y;
 }
 
-fn main()
+fn main() : int
 {
 	return foo(4);
 }

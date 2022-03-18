@@ -1,5 +1,5 @@
 // @test error
 
-fn main()
+fn main() : int
 {
 	int x = 4 +

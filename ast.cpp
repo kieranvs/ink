@@ -13,6 +13,8 @@ void dump_ast(Ast& ast, size_t index, int indent)
 		return;
 	else if (ast[index].type == AstNodeType::LiteralInt)
 		printf("%d\n", ast[index].data_literal_int.value);
+	else if (ast[index].type == AstNodeType::LiteralBool)
+		printf("%s\n", ast[index].data_literal_bool.value ? "true" : "false");
 	else if (ast[index].type == AstNodeType::BinOpAdd)
 	{
 		printf("+\n");
@@ -24,6 +26,10 @@ void dump_ast(Ast& ast, size_t index, int indent)
 		printf("*\n");
 		dump_ast(ast, ast[index].child0, indent + 1);
 		dump_ast(ast, ast[index].child1, indent + 1);
+	}
+	else if (ast[index].type == AstNodeType::Variable)
+	{
+		printf("Variable %d\n", ast[index].data_variable.variable_index);
 	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
@@ -38,9 +44,12 @@ void dump_ast(Ast& ast, size_t index, int indent)
 		printf("return\n");
 		dump_ast(ast, ast[index].child0, indent + 1);
 	}
-	else if (ast[index].type == AstNodeType::Variable)
+	else if (ast[index].type == AstNodeType::ExpressionStatement)
 	{
-		printf("Variable %d\n", ast[index].data_variable.variable_index);
+		printf("Expr statement\n");
+		dump_ast(ast, ast[index].child0, indent + 1);
+		if (ast[index].next.has_value())
+			dump_ast(ast, ast[index].next.value(), indent);
 	}
 	else if (ast[index].type == AstNodeType::FunctionDefinition)
 	{
@@ -51,6 +60,11 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
 		printf("Function call %d\n", ast[index].data_function_call.function_index);
+	}
+	else if (ast[index].type == AstNodeType::FunctionCallArg)
+	{
+		printf("Function call arg %d\n");
+		dump_ast(ast, ast[index].child0, indent + 1);
 	}
 	else
 	{

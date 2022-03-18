@@ -312,6 +312,13 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 		}
 	}
 
+	parser.get_if(TokenType::Colon, "Missing return type declaration, expected :");
+	auto& return_type_token = parser.get_if(TokenType::Identifier, "Expected return type");
+	auto return_type_index = symbol_table.find_type(return_type_token.data_str);
+	if (!return_type_index.has_value())
+		log_error(return_type_token, "Unknown type");
+	func.return_type_index = return_type_index.value();
+
 	parser.get_if(TokenType::BraceLeft, "Expected {");
 
 	if (parser.next_is(TokenType::BraceRight))

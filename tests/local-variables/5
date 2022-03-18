@@ -1,6 +1,6 @@
 // @test 30
 
-fn main()
+fn main() : int
 {
 	bool a = true;
 	int b = 30;

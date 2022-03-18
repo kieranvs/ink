@@ -1,11 +1,11 @@
 // @test 1
 
-fn main()
+fn main() : int
 {
     return 1;
 }
 
-fn foo()
+fn foo() : int
 {
     return 89;
 }

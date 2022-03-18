@@ -159,6 +159,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			new_token.type = TokenType::BraceRight;
 		else if (lexer.get_if(','))
 			new_token.type = TokenType::Comma;
+		else if (lexer.get_if(':'))
+			new_token.type = TokenType::Colon;
 		else
 			log_error(new_token, "Unrecognised token");
 

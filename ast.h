@@ -118,6 +118,7 @@ struct Function
 	std::string name;
 	std::vector<size_t> parameters;
 	bool intrinsic;
+	size_t return_type_index;
 };
 
 struct SymbolTable

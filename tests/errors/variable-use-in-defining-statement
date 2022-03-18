@@ -1,6 +1,6 @@
 // @test error
 
-fn main()
+fn main() : int
 {
     int x = x + 1;
     return x;

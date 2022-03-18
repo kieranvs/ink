@@ -18,7 +18,8 @@ enum class TokenType
 	Identifier,
 	Assign,
 	StatementEnd,
-	Comma
+	Comma,
+	Colon
 };
 
 struct Token

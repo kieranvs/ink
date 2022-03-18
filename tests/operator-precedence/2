@@ -1,6 +1,6 @@
 // @test 17
 
-fn main()
+fn main() : int
 {
     int x = 3 * 4 + 5;
     return x;

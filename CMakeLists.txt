@@ -13,6 +13,7 @@ add_executable(
 	lexer.cpp
 	main.cpp
 	parser.cpp
+	typecheck.cpp
 	utils.cpp
 )
 

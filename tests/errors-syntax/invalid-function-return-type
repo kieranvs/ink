@@ -1,12 +1,11 @@
 // @test error
 
-fn foo() : int
+fn foo() : bar
 {
-	return 4;
+	return 1;
 }
 
 fn main() : int
 {
-	int x = foo;
 	return 2;
 }

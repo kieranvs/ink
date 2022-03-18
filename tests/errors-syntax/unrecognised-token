@@ -1,6 +1,6 @@
 // @test error
 
-fn main()
+fn main() : int
 {
 	$
 }

@@ -172,6 +172,9 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	{
 		if (func.name == "main")
 		{
+			if (symbol_table.types[func.return_type_index].name != "int")
+				log_error("Main function defined with wrong return type");
+
 			main_defined = true;
 			break;
 		}

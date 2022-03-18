@@ -1,4 +1,4 @@
-// @test 1
+// @test error
 
 fn get_bool(bool b) : bool
 {
@@ -7,6 +7,6 @@ fn get_bool(bool b) : bool
 
 fn main() : int
 {
-	bool b = get_bool(true);
-	return 1;
+	bool b = get_bool(80);
+	return 20;
 }

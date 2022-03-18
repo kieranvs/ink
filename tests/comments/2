@@ -1,6 +1,6 @@
 // @test 20
 
-fn main()
+fn main() : int
 {
 	return 20;
 }

@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "codegen.h"
+#include "typecheck.h"
 #include "utils.h"
 
 #include <stdio.h>
@@ -60,6 +61,8 @@ int main(int argc, char** argv)
 	}
 	
 	parse_top_level(parser, symbol_table);
+
+	type_check(symbol_table);
 
 	FILE* file_ptr = fopen("test.asm","w");
 	if (file_ptr == nullptr)

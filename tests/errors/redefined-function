@@ -1,16 +1,16 @@
 // @test error
 
-fn main()
+fn main() : int
 {
 	return 3;
 }
 
-fn foo()
+fn foo() : int
 {
 	return 1;	
 }
 
-fn foo()
+fn foo() : int
 {
 	return 1;	
 }

@@ -2,6 +2,6 @@
 
 fn main() : int
 {
-	int x = 4 +
-	return x;
+	bool b = false;
+	return b;
 }
