@@ -42,6 +42,21 @@ bool Lexer::get_if(char c)
 		return false;
 }
 
+bool Lexer::get_if(const char* pattern)
+{
+	int pattern_length = strlen(pattern);
+	if (input.size() < index + pattern_length) return false;
+
+	for (int i = 0; i < pattern_length; i++)
+		if (input[index + i] != pattern[i])
+			return false;
+
+	for (int i = 0; i < pattern_length; i++)
+		get();
+
+	return true;
+}
+
 bool Lexer::has_more() const
 {
 	return input.size() > index;
@@ -141,6 +156,18 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.data_str = identifier_string;
 			}
 		}
+		else if (lexer.get_if(">="))
+			new_token.type = TokenType::CompareGreaterEqual;
+		else if (lexer.get_if("<="))
+			new_token.type = TokenType::CompareLessEqual;
+		else if (lexer.get_if("=="))
+			new_token.type = TokenType::CompareEqual;
+		else if (lexer.get_if("!="))
+			new_token.type = TokenType::CompareNotEqual;
+		else if (lexer.get_if('>'))
+			new_token.type = TokenType::CompareGreater;
+		else if (lexer.get_if('<'))
+			new_token.type = TokenType::CompareLess;
 		else if (lexer.get_if('*'))
 			new_token.type = TokenType::OperatorMultiply;
 		else if (lexer.get_if('+'))

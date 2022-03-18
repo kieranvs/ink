@@ -104,6 +104,27 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 
 		return expr_ta;
 	}
+	else if (ast[index].type == AstNodeType::BinCompGreater
+		  || ast[index].type == AstNodeType::BinCompGreaterEqual
+		  || ast[index].type == AstNodeType::BinCompLess
+		  || ast[index].type == AstNodeType::BinCompLessEqual
+		  || ast[index].type == AstNodeType::BinCompEqual
+		  || ast[index].type == AstNodeType::BinCompNotEqual
+		  )
+	{
+		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
+		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
+
+		TypeAnnotation expr_ta;
+		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
+			log_error("Type mismatch");
+
+		// Comparison makes bool
+		expr_ta.special = false;
+		expr_ta.type_index = intrinsic_type_index_bool;
+
+		return expr_ta;
+	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
 		auto& scope = symbol_table.scopes[ast[index].data_variable.scope_index];
@@ -174,7 +195,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 				variable_ta.special = false;
 
 				if (!can_assign(variable_ta, expr_ta))
-					log_error("Assignment to incompatible type");
+					log_error("Argument has incompatible type");
 				
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}

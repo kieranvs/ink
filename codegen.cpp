@@ -57,21 +57,43 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		else
 			fprintf(file, "    mov %s, %d\n", register_name(0, 1), 0);
 	}
-	else if (ast[index].type == AstNodeType::BinOpAdd)
+	else if (ast[index].type == AstNodeType::BinOpAdd
+		  || ast[index].type == AstNodeType::BinOpMul
+		  || ast[index].type == AstNodeType::BinCompGreater
+		  || ast[index].type == AstNodeType::BinCompGreaterEqual
+		  || ast[index].type == AstNodeType::BinCompLess
+		  || ast[index].type == AstNodeType::BinCompLessEqual
+		  || ast[index].type == AstNodeType::BinCompEqual
+		  || ast[index].type == AstNodeType::BinCompNotEqual
+		)
 	{
 		codegen_ast(ast, symbol_table, file, ast[index].child0);
 		fprintf(file, "    push %s\n", register_name(0, 8));
 		codegen_ast(ast, symbol_table, file, ast[index].child1);
 		fprintf(file, "    pop %s\n", register_name(2, 8));
-		fprintf(file, "    add %s, %s\n", register_name(0, 8), register_name(2, 8));
-	}
-	else if (ast[index].type == AstNodeType::BinOpMul)
-	{
-		codegen_ast(ast, symbol_table, file, ast[index].child0);
-		fprintf(file, "    push %s\n", register_name(0, 8));
-		codegen_ast(ast, symbol_table, file, ast[index].child1);
-		fprintf(file, "    pop %s\n", register_name(2, 8));
-		fprintf(file, "    mul %s\n", register_name(2, 8));
+
+		if (ast[index].type == AstNodeType::BinOpAdd)
+			fprintf(file, "    add %s, %s\n", register_name(0, 8), register_name(2, 8));
+		else if (ast[index].type == AstNodeType::BinOpMul)
+			fprintf(file, "    mul %s\n", register_name(2, 8));
+		else
+		{
+			fprintf(file, "    cmp %s, %s\n", register_name(0, 8), register_name(2, 8));
+			if (ast[index].type == AstNodeType::BinCompGreater)
+				fprintf(file, "    setg %s\n", register_name(0, 1));
+			else if (ast[index].type == AstNodeType::BinCompGreaterEqual)
+				fprintf(file, "    setge %s\n", register_name(0, 1));
+			else if (ast[index].type == AstNodeType::BinCompLess)
+				fprintf(file, "    setl %s\n", register_name(0, 1));
+			else if (ast[index].type == AstNodeType::BinCompLessEqual)
+				fprintf(file, "    setle %s\n", register_name(0, 1));
+			else if (ast[index].type == AstNodeType::BinCompEqual)
+				fprintf(file, "    sete %s\n", register_name(0, 1));
+			else if (ast[index].type == AstNodeType::BinCompNotEqual)
+				fprintf(file, "    setne %s\n", register_name(0, 1));
+			else
+				internal_error("Unhandled binary compare");
+		}
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
@@ -226,4 +248,23 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "    syscall\n");
 	fprintf(file, "    add rsp, 24\n");
 	fprintf(file, "    ret\n");
+
+	fprintf(file, "print_bool:\n");
+	fprintf(file, "    test dil, dil\n");
+	fprintf(file, "    mov       rax, 1\n");
+	fprintf(file, "    mov       rdi, 1\n");
+	fprintf(file, "    jz .is_zero\n");
+	fprintf(file, "    mov       rsi, bool_print_true_msg\n");
+	fprintf(file, "    mov       rdx, 5\n");
+	fprintf(file, "    jmp .print\n");
+	fprintf(file, ".is_zero:\n");
+	fprintf(file, "    mov       rsi, bool_print_false_msg\n");
+	fprintf(file, "    mov       rdx, 6\n");
+	fprintf(file, ".print:\n");
+	fprintf(file, "    syscall\n");
+	fprintf(file, "    ret\n");
+
+	fprintf(file, "    section .data\n");
+	fprintf(file, "bool_print_true_msg:  db        \"true\", 10\n");
+	fprintf(file, "bool_print_false_msg:  db        \"false\", 10\n");
 }

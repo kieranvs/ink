@@ -48,10 +48,8 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 	auto priority = [](const Token& t)
 	{
-		if (t.type == TokenType::OperatorPlus)
-			return 1;
-		else if (t.type == TokenType::OperatorMultiply)
-			return 2;
+		if (t.type == TokenType::OperatorPlus) return 1;
+		else if (t.type == TokenType::OperatorMultiply)	return 2;
 		else return 0;
 	};
 
@@ -68,10 +66,14 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		expr_nodes.pop();
 
 		size_t node;
-		if (top.type == TokenType::OperatorPlus)
-			node = ast.make(AstNodeType::BinOpAdd);
-		else
-			node = ast.make(AstNodeType::BinOpMul);
+		if (top.type == TokenType::OperatorPlus)          node = ast.make(AstNodeType::BinOpAdd);
+		else if (top.type == TokenType::OperatorMultiply)    node = ast.make(AstNodeType::BinOpMul);
+		else if (top.type == TokenType::CompareGreater)      node = ast.make(AstNodeType::BinCompGreater);
+		else if (top.type == TokenType::CompareGreaterEqual) node = ast.make(AstNodeType::BinCompGreaterEqual);
+		else if (top.type == TokenType::CompareLess)         node = ast.make(AstNodeType::BinCompLess);
+		else if (top.type == TokenType::CompareLessEqual)    node = ast.make(AstNodeType::BinCompLessEqual);
+		else if (top.type == TokenType::CompareEqual)        node = ast.make(AstNodeType::BinCompEqual);
+		else if (top.type == TokenType::CompareNotEqual)     node = ast.make(AstNodeType::BinCompNotEqual);
 
 		ast[node].child0 = expr0;
 		ast[node].child1 = expr1;
@@ -95,7 +97,15 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			ast[node].data_literal_bool.value = next_token.data_bool;
 			expr_nodes.push(node);
 		}
-		else if (next_token.type == TokenType::OperatorPlus || next_token.type == TokenType::OperatorMultiply)
+		else if (next_token.type == TokenType::OperatorPlus
+			  || next_token.type == TokenType::OperatorMultiply
+			  || next_token.type == TokenType::CompareGreater
+			  || next_token.type == TokenType::CompareGreaterEqual
+			  || next_token.type == TokenType::CompareLess
+			  || next_token.type == TokenType::CompareLessEqual
+			  || next_token.type == TokenType::CompareEqual
+			  || next_token.type == TokenType::CompareNotEqual
+			  )
 		{
 			while (!operators.empty() && priority(operators.top()) > priority(next_token)) // or they are the same and next_token is left assoc
 			{
@@ -271,6 +281,8 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 
 	symbol_table.scopes.emplace_back();
 	size_t scope = symbol_table.scopes.size() - 1;
+
+	func.scope = scope;
 
 	while (true)
 	{

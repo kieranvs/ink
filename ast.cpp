@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 
-void dump_ast(Ast& ast, size_t index, int indent)
+void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
 {
 	for (int i = 0; i < indent; i++)
 		printf("  ");
@@ -15,17 +15,27 @@ void dump_ast(Ast& ast, size_t index, int indent)
 		printf("%d\n", ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::LiteralBool)
 		printf("%s\n", ast[index].data_literal_bool.value ? "true" : "false");
-	else if (ast[index].type == AstNodeType::BinOpAdd)
+	else if (ast[index].type == AstNodeType::BinOpAdd
+		  || ast[index].type == AstNodeType::BinOpMul
+		  || ast[index].type == AstNodeType::BinCompGreater
+		  || ast[index].type == AstNodeType::BinCompGreaterEqual
+		  || ast[index].type == AstNodeType::BinCompLess
+		  || ast[index].type == AstNodeType::BinCompLessEqual
+		  || ast[index].type == AstNodeType::BinCompEqual
+		  || ast[index].type == AstNodeType::BinCompNotEqual
+		)
 	{
-		printf("+\n");
-		dump_ast(ast, ast[index].child0, indent + 1);
-		dump_ast(ast, ast[index].child1, indent + 1);
-	}
-	else if (ast[index].type == AstNodeType::BinOpMul)
-	{
-		printf("*\n");
-		dump_ast(ast, ast[index].child0, indent + 1);
-		dump_ast(ast, ast[index].child1, indent + 1);
+		if (ast[index].type == AstNodeType::BinOpAdd) printf("+\n");
+		if (ast[index].type == AstNodeType::BinOpMul) printf("*\n");
+		if (ast[index].type == AstNodeType::BinCompGreater) printf(">\n");
+		if (ast[index].type == AstNodeType::BinCompGreaterEqual) printf(">=\n");
+		if (ast[index].type == AstNodeType::BinCompLess) printf("<\n");
+		if (ast[index].type == AstNodeType::BinCompLessEqual) printf("<=\n");
+		if (ast[index].type == AstNodeType::BinCompEqual) printf("==\n");
+		if (ast[index].type == AstNodeType::BinCompNotEqual) printf("!=\n");
+
+		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
+		dump_ast(symbol_table, ast, ast[index].child1, indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
@@ -34,37 +44,53 @@ void dump_ast(Ast& ast, size_t index, int indent)
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
 		printf("=\n");
-		dump_ast(ast, ast[index].child0, indent + 1);
-		dump_ast(ast, ast[index].child1, indent + 1);
+		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
+		dump_ast(symbol_table, ast, ast[index].child1, indent + 1);
 		if (ast[index].next.has_value())
-			dump_ast(ast, ast[index].next.value(), indent);
+			dump_ast(symbol_table, ast, ast[index].next.value(), indent);
 	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
 		printf("return\n");
-		dump_ast(ast, ast[index].child0, indent + 1);
+		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::ExpressionStatement)
 	{
 		printf("Expr statement\n");
-		dump_ast(ast, ast[index].child0, indent + 1);
+		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
 		if (ast[index].next.has_value())
-			dump_ast(ast, ast[index].next.value(), indent);
+			dump_ast(symbol_table, ast, ast[index].next.value(), indent);
 	}
 	else if (ast[index].type == AstNodeType::FunctionDefinition)
 	{
 		printf("Function\n");
 		if (ast[index].next.has_value())
-			dump_ast(ast, ast[index].next.value(), indent + 1);
+			dump_ast(symbol_table, ast, ast[index].next.value(), indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
 		printf("Function call %d\n", ast[index].data_function_call.function_index);
+
+		auto func_index = ast[index].data_function_call.function_index;
+		auto& func = symbol_table.functions[func_index];
+		auto& func_scope = symbol_table.scopes[func.scope];
+
+		if (func.parameters.size() != 0)
+		{
+			auto current_arg_node = ast[index].child0;
+
+			for (int i = 0; i < func.parameters.size(); i++)
+			{
+				dump_ast(symbol_table, ast, current_arg_node, indent + 1);
+				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
+			}
+		}
+
 	}
 	else if (ast[index].type == AstNodeType::FunctionCallArg)
 	{
-		printf("Function call arg %d\n");
-		dump_ast(ast, ast[index].child0, indent + 1);
+		printf("Function call arg\n");
+		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
 	}
 	else
 	{

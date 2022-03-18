@@ -15,6 +15,12 @@ enum class TokenType
 	LiteralBool,
 	OperatorPlus,
 	OperatorMultiply,
+	CompareGreater,
+	CompareGreaterEqual,
+	CompareLess,
+	CompareLessEqual,
+	CompareEqual,
+	CompareNotEqual,
 	Identifier,
 	Assign,
 	StatementEnd,
@@ -43,6 +49,7 @@ struct Lexer
 	char peek();
 	char get();
 	bool get_if(char c);
+	bool get_if(const char* pattern);
 
 	template <typename FuncType>
 	std::string get_while(FuncType condition)

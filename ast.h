@@ -16,6 +16,12 @@ enum class AstNodeType
 	LiteralBool,
 	BinOpAdd,
 	BinOpMul,
+	BinCompGreater,
+	BinCompGreaterEqual,
+	BinCompLess,
+	BinCompLessEqual,
+	BinCompEqual,
+	BinCompNotEqual,
 	Variable,
 	Assignment,
 	Return,
@@ -131,4 +137,4 @@ struct SymbolTable
 	std::optional<size_t> find_type(const std::string& name);
 };
 
-void dump_ast(Ast& ast, size_t index = 0, int indent = 0);
+void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);
