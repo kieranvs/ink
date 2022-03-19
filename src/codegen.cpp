@@ -209,8 +209,6 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "\n");
 	fprintf(file, "_start:\n");
 	fprintf(file, "    call main\n");
-	fprintf(file, "    mov rdi, rax\n");
-	fprintf(file, "    call print_uint32\n");
 	fprintf(file, "    call exit\n");
 	fprintf(file, "\n");
 

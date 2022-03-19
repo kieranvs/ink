@@ -2,6 +2,7 @@
 
 fn main() : int
 {
-	// return 43;
-	return 20;
+	// print_uint32(43);
+	print_uint32(20);
+	return 0;
 }

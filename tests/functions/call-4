@@ -14,5 +14,6 @@ fn main() : int
 {
 	int x = foo();
 	int y = goo();
-	return x + y;
+	print_uint32(x + y);
+	return 0;
 }

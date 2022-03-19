@@ -13,5 +13,6 @@ fn goo() : int
 fn main() : int
 {
 	int x = goo();
-	return x;
+	print_uint32(x);
+	return 0;
 }

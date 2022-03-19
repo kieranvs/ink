@@ -7,5 +7,6 @@ fn foo() : int
 
 fn main() : int
 {
-    return 2;
+    print_uint32(2);
+    return 0;
 }

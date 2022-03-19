@@ -3,5 +3,6 @@
 fn main() : int
 {
     int x = 3 * 4 + 5 * 6;
-    return x;
+    print_uint32(x);
+    return 0;
 }

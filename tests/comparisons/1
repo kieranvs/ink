@@ -1,8 +1,9 @@
-// @test 0
+// @test false
 
 fn main() : int
 {
 	int i = 20;
 	bool b = i == 10;
+	print_bool(b);
 	return 0;
 }

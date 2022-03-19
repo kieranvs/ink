@@ -8,5 +8,6 @@ fn foo() : int
 fn main() : int
 {
 	int x = foo();
-	return x;
+	print_uint32(x);
+	return 0;
 }

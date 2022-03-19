@@ -4,5 +4,6 @@ fn main() : int
 {
 	int x = 3;
 	int y = 5;
-	return x + y;
+	print_uint32(x + y);
+	return 0;
 }

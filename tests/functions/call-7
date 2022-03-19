@@ -1,4 +1,4 @@
-// @test 1
+// @test true
 
 fn get_bool(bool b) : bool
 {
@@ -8,5 +8,6 @@ fn get_bool(bool b) : bool
 fn main() : int
 {
 	bool b = get_bool(true);
-	return 1;
+	print_bool(b);
+	return 0;
 }
