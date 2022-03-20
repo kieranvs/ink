@@ -140,6 +140,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.type = TokenType::KeywordFunctionDecl;
 			else if (identifier_string == "return")
 				new_token.type = TokenType::KeywordReturn;
+			else if (identifier_string == "if")
+				new_token.type = TokenType::KeywordIf;
 			else if (identifier_string == "true")
 			{
 				new_token.type = TokenType::LiteralBool;

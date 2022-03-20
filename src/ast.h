@@ -29,6 +29,7 @@ enum class AstNodeType
 	FunctionDefinition,
 	FunctionCall,
 	FunctionCallArg,
+	If
 };
 
 struct AstNode
@@ -125,6 +126,7 @@ struct Function
 	std::vector<size_t> parameters;
 	bool intrinsic;
 	size_t return_type_index;
+	size_t next_label = 0;
 };
 
 struct SymbolTable

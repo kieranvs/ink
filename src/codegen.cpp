@@ -44,7 +44,7 @@ int register_for_parameter(int i)
 		internal_error("Register overflow");
 }
 
-void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
+void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 {
 	if (ast[index].type == AstNodeType::None)
 		return;
@@ -67,9 +67,9 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		  || ast[index].type == AstNodeType::BinCompNotEqual
 		)
 	{
-		codegen_ast(ast, symbol_table, file, ast[index].child0);
+		codegen_expr(ast, symbol_table, file, ast[index].child0);
 		fprintf(file, "    push %s\n", register_name(0, 8));
-		codegen_ast(ast, symbol_table, file, ast[index].child1);
+		codegen_expr(ast, symbol_table, file, ast[index].child1);
 		fprintf(file, "    pop %s\n", register_name(2, 8));
 
 		if (ast[index].type == AstNodeType::BinOpAdd)
@@ -103,51 +103,6 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		auto data_size = type.data_size;
 		fprintf(file, "    mov %s, [rbp - %d]\n", register_name(0, data_size), variable.stack_offset);
 	}
-	else if (ast[index].type == AstNodeType::Assignment)
-	{
-		codegen_ast(ast, symbol_table, file, ast[index].child1);
-
-		auto variable_node = ast[index].child0;
-		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
-		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
-		auto& type = symbol_table.types[variable.type_index];
-		auto data_size = type.data_size;
-		fprintf(file, "    mov [rbp - %d], %s\n", variable.stack_offset, register_name(0, data_size));
-
-		if (ast[index].next.has_value())
-			codegen_ast(ast, symbol_table, file, ast[index].next.value());
-	}
-	else if (ast[index].type == AstNodeType::ExpressionStatement)
-	{
-		codegen_ast(ast, symbol_table, file, ast[index].child0);
-
-		if (ast[index].next.has_value())
-			codegen_ast(ast, symbol_table, file, ast[index].next.value());
-	}
-	else if (ast[index].type == AstNodeType::FunctionDefinition)
-	{
-		fprintf(file, "    push rbp\n");
-		fprintf(file, "    mov rbp, rsp\n");
-		fprintf(file, "    sub rsp, %d\n", ast[index].data_function_definition.stack_size);
-
-		auto func_index = ast[index].data_function_definition.function_index;
-		auto& func = symbol_table.functions[func_index];
-		auto& func_scope = symbol_table.scopes[func.scope];
-
-		for (int i = 0; i < func.parameters.size(); i++)
-		{
-			auto param_offset = func_scope.local_variables[func.parameters[i]].stack_offset;
-			auto var_type = func_scope.local_variables[func.parameters[i]].type_index;
-			auto data_size = symbol_table.types[var_type].data_size;
-			fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_name(register_for_parameter(i), data_size));
-		}
-
-		if (ast[index].next.has_value())
-			codegen_ast(ast, symbol_table, file, ast[index].next.value());
-
-		fprintf(file, "    leave\n");
-		fprintf(file, "    ret\n");
-	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
 		auto func_index = ast[index].data_function_call.function_index;
@@ -160,7 +115,7 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 
 			for (int i = 0; i < func.parameters.size(); i++)
 			{
-				codegen_ast(ast, symbol_table, file, ast[current_arg_node].child0);
+				codegen_expr(ast, symbol_table, file, ast[current_arg_node].child0);
 				fprintf(file, "    mov %s, %s\n", register_name(register_for_parameter(i), 8), register_name(0, 8));
 
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
@@ -169,9 +124,48 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 
 		fprintf(file, "    call %s\n", func.name.c_str());
 	}
+}
+
+void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, size_t function_index)
+{
+	if (ast[index].type == AstNodeType::Assignment)
+	{
+		codegen_expr(ast, symbol_table, file, ast[index].child1);
+
+		auto variable_node = ast[index].child0;
+		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
+		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
+		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = type.data_size;
+		fprintf(file, "    mov [rbp - %d], %s\n", variable.stack_offset, register_name(0, data_size));
+
+		if (ast[index].next.has_value())
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+	}
+	else if (ast[index].type == AstNodeType::ExpressionStatement)
+	{
+		codegen_expr(ast, symbol_table, file, ast[index].child0);
+
+		if (ast[index].next.has_value())
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
-		codegen_ast(ast, symbol_table, file, ast[index].child0);
+		codegen_expr(ast, symbol_table, file, ast[index].child0);
+		fprintf(file, "    leave\n");
+		fprintf(file, "    ret\n");
+	}
+	else if (ast[index].type == AstNodeType::If)
+	{
+		codegen_expr(ast, symbol_table, file, ast[index].child0);
+		fprintf(file, "    test %s, %s\n", register_name(0, 1), register_name(0, 1));
+		size_t label_index = symbol_table.functions[function_index].next_label++;
+		fprintf(file, "    jz .L%zd\n", label_index);
+		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index);
+		fprintf(file, ".L%zd:\n", label_index);
+		if (ast[index].next.has_value())
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+
 	}
 	else
 	{
@@ -179,10 +173,38 @@ void codegen_ast(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 	}
 }
 
-void codegen_function(Function& func, SymbolTable& symbol_table, FILE* file)
+void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* file)
 {
+	auto& func = symbol_table.functions[function_index];
+
 	fprintf(file, "%s:\n", func.name.c_str());
-	codegen_ast(func.ast, symbol_table, file, func.ast_node_root);
+
+	auto& ast = func.ast;
+	auto index = func.ast_node_root;
+	auto& func_scope = symbol_table.scopes[func.scope];
+
+	if (ast[index].type != AstNodeType::FunctionDefinition)
+		internal_error("Expected root node for function ast to be function definition");
+
+	// Function preamble
+	fprintf(file, "    push rbp\n");
+	fprintf(file, "    mov rbp, rsp\n");
+	fprintf(file, "    sub rsp, %d\n", ast[index].data_function_definition.stack_size);
+
+	for (int i = 0; i < func.parameters.size(); i++)
+	{
+		auto param_offset = func_scope.local_variables[func.parameters[i]].stack_offset;
+		auto var_type = func_scope.local_variables[func.parameters[i]].type_index;
+		auto data_size = symbol_table.types[var_type].data_size;
+		fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_name(register_for_parameter(i), data_size));
+	}
+
+	if (ast[index].next.has_value())
+		codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+
+	fprintf(file, "    leave\n");
+	fprintf(file, "    ret\n");
+	
 	fprintf(file, "\n");
 }
 
@@ -213,10 +235,11 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "\n");
 
 	fprintf(file, "; user code\n");
-	for (auto& func : symbol_table.functions)
+	for (size_t i = 0; i < symbol_table.functions.size(); i++)
 	{
+		auto& func = symbol_table.functions[i];
 		if (!func.intrinsic)
-			codegen_function(func, symbol_table, file);
+			codegen_function(i, symbol_table, file);
 	}
 
 	fprintf(file, "; intrinsics\n");

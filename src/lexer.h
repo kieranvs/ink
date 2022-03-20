@@ -7,6 +7,7 @@ enum class TokenType
 {
 	KeywordFunctionDecl,
 	KeywordReturn,
+	KeywordIf,
 	ParenthesisLeft,
 	ParenthesisRight,
 	BraceLeft,

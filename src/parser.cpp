@@ -40,6 +40,8 @@ const Token& Parser::get_if(TokenType type, const char* error_message)
 	return ret;
 }
 
+std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope);
+
 size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token)
 {
 	std::stack<size_t> expr_nodes;
@@ -249,6 +251,26 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		return return_node;
 	}
+	// If statement
+	else if (parser.next_is(TokenType::KeywordIf))
+	{
+		auto& if_token = parser.get();
+		parser.get_if(TokenType::ParenthesisLeft, "Expected (");
+
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::ParenthesisRight);
+
+		auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
+
+		auto block_node = parse_block(parser, ast, symbol_table, scope_index);
+		if (!block_node.has_value())
+			log_error(brace_token, "Empty body not allowed");
+
+		size_t if_node = ast.make(AstNodeType::If);
+		ast[if_node].child0 = expr_node;
+		ast[if_node].child1 = block_node.value();
+
+		return if_node;
+	}
 	// Expression
 	else
 	{
@@ -259,6 +281,35 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		return expr_statement_node;
 	}
+}
+
+std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope)
+{
+	std::optional<size_t> first_node;
+
+	if (parser.next_is(TokenType::BraceRight))
+	{
+		parser.get();
+	}
+	else if (parser.has_more())
+	{
+		first_node = parse_statement(parser, ast, symbol_table, scope);
+		size_t prev_node = first_node.value();
+		while (parser.has_more())
+		{
+			if (parser.next_is(TokenType::BraceRight))
+			{
+				parser.get();
+				break;
+			}
+
+			size_t st = parse_statement(parser, ast, symbol_table, scope);
+			ast[prev_node].next = st;
+			prev_node = st;
+		}
+	}
+
+	return first_node;
 }
 
 void parse_function(Parser& parser, SymbolTable& symbol_table)
@@ -284,6 +335,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 
 	func.scope = scope;
 
+	// Parse parameter list
 	while (true)
 	{
 		if (!parser.has_more())
@@ -333,27 +385,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 
 	parser.get_if(TokenType::BraceLeft, "Expected {");
 
-	if (parser.next_is(TokenType::BraceRight))
-	{
-		parser.get();
-	}
-	else if (parser.has_more())
-	{
-		func.ast[func_node].next = parse_statement(parser, func.ast, symbol_table, scope);
-		size_t prev_node = func.ast[func_node].next.value();
-		while (parser.has_more())
-		{
-			if (parser.next_is(TokenType::BraceRight))
-			{
-				parser.get();
-				break;
-			}
-
-			size_t st = parse_statement(parser, func.ast, symbol_table, scope);
-			func.ast[prev_node].next = st;
-			prev_node = st;
-		}
-	}
+	func.ast[func_node].next = parse_block(parser, func.ast, symbol_table, scope);
 
 	int stack_size = 0;
 	for (auto& v : symbol_table.scopes[scope].local_variables)
