@@ -40,7 +40,7 @@ const Token& Parser::get_if(TokenType type, const char* error_message)
 	return ret;
 }
 
-std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope);
+std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope, bool create_inner_scope);
 
 size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token)
 {
@@ -118,13 +118,11 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		}
 		else if (next_token.type == TokenType::Identifier)
 		{
-			auto& scope = symbol_table.scopes[scope_index];
-
-			if (auto variable_index = scope.find_variable(next_token.data_str))
+			if (auto variable_location = symbol_table.find_variable(scope_index, next_token.data_str))
 			{
 				auto node = ast.make(AstNodeType::Variable);
-				ast[node].data_variable.variable_index = variable_index.value();
-				ast[node].data_variable.scope_index = scope_index;
+				ast[node].data_variable.variable_index = variable_location.value().second;
+				ast[node].data_variable.scope_index = variable_location.value().first;
 				expr_nodes.push(node);
 			}
 			else if (auto function = symbol_table.find_function(next_token.data_str))
@@ -196,13 +194,12 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
-		auto& scope = symbol_table.scopes[scope_index];
-		auto variable_index = scope.find_variable(ident_token.data_str);
-		if (!variable_index)
+		auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str);
+		if (!variable_location)
 			log_error(ident_token, "Undefined variable");
 
-		ast[var_node].data_variable.variable_index = variable_index.value();
-		ast[var_node].data_variable.scope_index = scope_index;
+		ast[var_node].data_variable.variable_index = variable_location.value().second;
+		ast[var_node].data_variable.scope_index = variable_location.value().first;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment);
 		ast[assign_node].child0 = var_node;
@@ -261,7 +258,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
 
-		auto block_node = parse_block(parser, ast, symbol_table, scope_index);
+		auto block_node = parse_block(parser, ast, symbol_table, scope_index, true);
 		if (!block_node.has_value())
 			log_error(brace_token, "Empty body not allowed");
 
@@ -283,8 +280,17 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	}
 }
 
-std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope)
+std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope, bool create_inner_scope)
 {
+	if (create_inner_scope)
+	{
+		auto parent_scope = scope;
+		symbol_table.scopes.emplace_back();
+		scope = symbol_table.scopes.size() - 1;
+
+		symbol_table.scopes[scope].parent = parent_scope;
+	}
+
 	std::optional<size_t> first_node;
 
 	if (parser.next_is(TokenType::BraceRight))
@@ -310,6 +316,32 @@ std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_
 	}
 
 	return first_node;
+}
+
+uint32_t assign_stack_offsets(SymbolTable& symbol_table, uint32_t base_offset, size_t scope_index)
+{
+	uint32_t scope_size = 0;
+	for (auto& v : symbol_table.scopes[scope_index].local_variables)
+	{
+		v.stack_offset = v.scope_offset + base_offset;
+
+		if (scope_size < v.scope_offset)
+			scope_size = v.scope_offset;
+	}
+
+	// This is an inefficient way to find the child scopes
+	uint32_t biggest_child_size = 0;
+	for (size_t i = 0; i < symbol_table.scopes.size(); i++)
+	{
+		auto& scope = symbol_table.scopes[i];
+		if (!scope.parent.has_value() || scope.parent.value() != scope_index) continue;
+
+		uint32_t child_size = assign_stack_offsets(symbol_table, base_offset + scope_size, i);
+		if (child_size > biggest_child_size)
+			biggest_child_size = child_size;
+	}
+
+	return biggest_child_size + scope_size;
 }
 
 void parse_function(Parser& parser, SymbolTable& symbol_table)
@@ -385,15 +417,9 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 
 	parser.get_if(TokenType::BraceLeft, "Expected {");
 
-	func.ast[func_node].next = parse_block(parser, func.ast, symbol_table, scope);
+	func.ast[func_node].next = parse_block(parser, func.ast, symbol_table, scope, false);
 
-	int stack_size = 0;
-	for (auto& v : symbol_table.scopes[scope].local_variables)
-	{
-		if (stack_size < v.stack_offset)
-			stack_size = v.stack_offset;
-	}
-
+	auto stack_size = assign_stack_offsets(symbol_table, 0, scope);
 	if (stack_size % 16 != 0)
 		stack_size = ((stack_size / 16) + 1) * 16;
 

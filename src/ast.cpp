@@ -98,12 +98,17 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	}
 }
 
-std::optional<size_t> Scope::find_variable(const std::string& name)
+std::optional<std::pair<size_t, size_t>> SymbolTable::find_variable(size_t scope_index, const std::string& name)
 {
-	for (size_t i = 0; i < local_variables.size(); i++)
+	auto& scope = scopes[scope_index];
+
+	for (size_t i = 0; i < scope.local_variables.size(); i++)
 	{
-		if (local_variables[i].name == name) return i;
+		if (scope.local_variables[i].name == name) return std::make_pair(scope_index, i);
 	}
+
+	if (scope.parent.has_value())
+		return find_variable(scope.parent.value(), name);
 
 	return std::nullopt;
 }
@@ -124,9 +129,9 @@ std::optional<size_t> Scope::make_variable(SymbolTable& symbol_table, const std:
 	v.name = name;
 	v.type_index = type_index;
 	if (local_variables.size() == 1)
-		v.stack_offset = type.data_size;
+		v.scope_offset = type.data_size;
 	else
-		v.stack_offset = local_variables[local_variables.size() - 2].stack_offset + type.data_size;
+		v.scope_offset = local_variables[local_variables.size() - 2].scope_offset + type.data_size;
 
 	return local_variables.size() - 1;
 }

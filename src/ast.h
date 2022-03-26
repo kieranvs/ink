@@ -95,6 +95,7 @@ struct Ast
 
 struct Variable
 {
+	uint32_t scope_offset;
 	uint32_t stack_offset;
 	std::string name;
 	size_t type_index;
@@ -114,7 +115,6 @@ struct Scope
 	std::vector<Variable> local_variables;
 	std::optional<size_t> parent;
 
-	std::optional<size_t> find_variable(const std::string& name);
 	std::optional<size_t> make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index);
 };
 
@@ -136,6 +136,7 @@ struct SymbolTable
 	std::vector<Scope> scopes;
 	std::vector<Type> types;
 
+	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
 };
