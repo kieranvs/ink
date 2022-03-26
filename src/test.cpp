@@ -157,6 +157,36 @@ int main()
 		{
 			add_test(dir_entry.path(), 101);
 		}
+		else if (line_str == "multiline")
+		{
+			std::string expected_output;
+			auto cursor = end_line + 1;
+			while (true)
+			{
+				if (str[cursor] == '/' && str[cursor + 1] == '/')
+				{
+					if (str[cursor + 2] != ' ')
+						printf("%s: multiline test output comment should have initial space\n", dir_entry.path().c_str());
+
+					auto end_line = str.find("\n", cursor);
+					if (end_line == std::string::npos)
+					{
+						printf("Error parsing test information in %s\n", dir_entry.path().c_str());
+						continue;
+					}
+
+					auto line_str = str.substr(cursor + 3, end_line - cursor - 2);
+
+					expected_output += line_str;
+
+					cursor = end_line + 1;
+				}
+				else
+					break;
+			}
+
+			add_test(dir_entry.path(), 0, expected_output);
+		}
 		else
 		{
 			std::string expected_output = line_str + "\n";
@@ -166,17 +196,28 @@ int main()
 
 	auto num_tests = tests.size();
 	size_t num_pass = 0;
+	std::vector<int> failures;
+
 	for (int i = 0; i < num_tests; i++)
 	{
 		printf("[%d/%d] ", i + 1, num_tests);
 		bool pass = run_test(tests[i].source_file.c_str(), tests[i].expected_error, tests[i].expected_output.c_str());
 		if (pass)
 			num_pass += 1;
+		else
+			failures.push_back(i);
 	}
 
 	printf("%s", num_pass == num_tests ? CONSOLE_GRN : CONSOLE_RED);
 	printf("%d/%d tests passed.\n", num_pass, num_tests);
 	printf("%s", CONSOLE_NRM);
+
+	if (!failures.empty())
+	{
+		printf("\nFailures:\n");
+		for (auto& i : failures)
+			printf("%s\n", tests[i].source_file.c_str());
+	}
 
 	return 0;
 }
