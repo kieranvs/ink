@@ -4,17 +4,17 @@
 
 #include <stdio.h>
 
-void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
+void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
 {
 	for (int i = 0; i < indent; i++)
-		printf("  ");
+		fprintf(output, "  ");
 
 	if (ast[index].type == AstNodeType::None)
 		return;
 	else if (ast[index].type == AstNodeType::LiteralInt)
-		printf("%d\n", ast[index].data_literal_int.value);
+		fprintf(output, "%d\n", ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::LiteralBool)
-		printf("%s\n", ast[index].data_literal_bool.value ? "true" : "false");
+		fprintf(output, "%s\n", ast[index].data_literal_bool.value ? "true" : "false");
 	else if (ast[index].type == AstNodeType::BinOpAdd
 		  || ast[index].type == AstNodeType::BinOpMul
 		  || ast[index].type == AstNodeType::BinCompGreater
@@ -25,51 +25,51 @@ void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
 		  || ast[index].type == AstNodeType::BinCompNotEqual
 		)
 	{
-		if (ast[index].type == AstNodeType::BinOpAdd) printf("+\n");
-		if (ast[index].type == AstNodeType::BinOpMul) printf("*\n");
-		if (ast[index].type == AstNodeType::BinCompGreater) printf(">\n");
-		if (ast[index].type == AstNodeType::BinCompGreaterEqual) printf(">=\n");
-		if (ast[index].type == AstNodeType::BinCompLess) printf("<\n");
-		if (ast[index].type == AstNodeType::BinCompLessEqual) printf("<=\n");
-		if (ast[index].type == AstNodeType::BinCompEqual) printf("==\n");
-		if (ast[index].type == AstNodeType::BinCompNotEqual) printf("!=\n");
+		if (ast[index].type == AstNodeType::BinOpAdd) fprintf(output, "+\n");
+		if (ast[index].type == AstNodeType::BinOpMul) fprintf(output, "*\n");
+		if (ast[index].type == AstNodeType::BinCompGreater) fprintf(output, ">\n");
+		if (ast[index].type == AstNodeType::BinCompGreaterEqual) fprintf(output, ">=\n");
+		if (ast[index].type == AstNodeType::BinCompLess) fprintf(output, "<\n");
+		if (ast[index].type == AstNodeType::BinCompLessEqual) fprintf(output, "<=\n");
+		if (ast[index].type == AstNodeType::BinCompEqual) fprintf(output, "==\n");
+		if (ast[index].type == AstNodeType::BinCompNotEqual) fprintf(output, "!=\n");
 
-		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
-		dump_ast(symbol_table, ast, ast[index].child1, indent + 1);
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+		dump_ast(output, symbol_table, ast, ast[index].child1, indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		printf("Variable %d\n", ast[index].data_variable.variable_index);
+		fprintf(output, "Variable %d\n", ast[index].data_variable.variable_index);
 	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
-		printf("=\n");
-		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
-		dump_ast(symbol_table, ast, ast[index].child1, indent + 1);
+		fprintf(output, "=\n");
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+		dump_ast(output, symbol_table, ast, ast[index].child1, indent + 1);
 		if (ast[index].next.has_value())
-			dump_ast(symbol_table, ast, ast[index].next.value(), indent);
+			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
 	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
-		printf("return\n");
-		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
+		fprintf(output, "return\n");
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::ExpressionStatement)
 	{
-		printf("Expr statement\n");
-		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
+		fprintf(output, "Expr statement\n");
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
 		if (ast[index].next.has_value())
-			dump_ast(symbol_table, ast, ast[index].next.value(), indent);
+			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
 	}
 	else if (ast[index].type == AstNodeType::FunctionDefinition)
 	{
-		printf("Function\n");
+		fprintf(output, "Function\n");
 		if (ast[index].next.has_value())
-			dump_ast(symbol_table, ast, ast[index].next.value(), indent + 1);
+			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
-		printf("Function call %d\n", ast[index].data_function_call.function_index);
+		fprintf(output, "Function call %d\n", ast[index].data_function_call.function_index);
 
 		auto func_index = ast[index].data_function_call.function_index;
 		auto& func = symbol_table.functions[func_index];
@@ -81,7 +81,7 @@ void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
 
 			for (int i = 0; i < func.parameters.size(); i++)
 			{
-				dump_ast(symbol_table, ast, current_arg_node, indent + 1);
+				dump_ast(output, symbol_table, ast, current_arg_node, indent + 1);
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}
 		}
@@ -89,8 +89,8 @@ void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
 	}
 	else if (ast[index].type == AstNodeType::FunctionCallArg)
 	{
-		printf("Function call arg\n");
-		dump_ast(symbol_table, ast, ast[index].child0, indent + 1);
+		fprintf(output, "Function call arg\n");
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
 	}
 	else
 	{

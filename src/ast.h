@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <stdint.h>
+#include <stdio.h>
 
 #include <vector>
 #include <string>
@@ -139,4 +140,4 @@ struct SymbolTable
 	std::optional<size_t> find_type(const std::string& name);
 };
 
-void dump_ast(SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);
+void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);

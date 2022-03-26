@@ -21,5 +21,6 @@ add_executable(
 add_executable(
 	testing
 	src/test.cpp
+	src/utils.cpp
 )
 add_dependencies(testing compiler)

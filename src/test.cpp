@@ -1,3 +1,5 @@
+#include "utils.h"
+
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -9,30 +11,6 @@
 #include <string>
 #include <vector>
 #include <filesystem>
-
-int exec_process(const char* cmd, std::string& output)
-{
-    char buffer[128];
-    
-    FILE* pipe = popen(cmd, "r");
-    if (!pipe) throw std::runtime_error("popen() failed!");
-    try
-    {
-        while (fgets(buffer, sizeof buffer, pipe) != NULL)
-        	output += buffer;
-    }
-    catch (...)
-    {
-        pclose(pipe);
-        throw;
-    }
-    
-    int retval = pclose(pipe);
-	if (WIFEXITED(retval) != 0)
-		return WEXITSTATUS(retval);
-	else
-		return -1;
-}
 
 #define CONSOLE_NRM  "\x1B[0m"
 #define CONSOLE_RED  "\x1B[31m"
@@ -46,64 +24,56 @@ int exec_process(const char* cmd, std::string& output)
 bool run_test(const char* input_file, int expected_error, const char* expected_output)
 {
 	printf("%s... ", input_file);
+	const char* executable_name = std::tmpnam(nullptr);
 
-	std::string compiler_command = std::string("./compiler ") + input_file;
-	std::string compiler_output;
-	int compiler_error = exec_process(compiler_command.c_str(), compiler_output);
-	if (compiler_error != expected_error)
+	bool success = [&]()
 	{
-		printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
-		printf("Compiler returned %d instead of expected %d\n", compiler_error, expected_error);
-		printf("Compiler output:\n%s\n", compiler_output.c_str());
-		return false;
-	}
+		char compiler_command[1024];
+		snprintf(compiler_command, 1024, "./compiler %s -o %s", input_file, executable_name);
+		std::string compiler_output;
+		int compiler_error = exec_process(compiler_command, compiler_output);
+		if (compiler_error != expected_error)
+		{
+			printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
+			printf("Compiler returned %d instead of expected %d\n", compiler_error, expected_error);
+			printf("Compiler output:\n%s\n", compiler_output.c_str());
+			return false;
+		}
 
-	// Compile failed, which was expected
-	if (compiler_error != 0)
-	{
+		// Compile failed, which was expected
+		if (compiler_error != 0)
+		{
+			printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
+			return true;
+		}
+
+		std::string runtime_output;
+		char runtime_command[128];
+		snprintf(runtime_command, 128, "%s", executable_name);
+		int runtime_error = exec_process(runtime_command, runtime_output);
+		if (runtime_error != 0)
+		{
+			printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
+			printf("Program returned %d\n", runtime_error);
+			printf("Program output:\n%s\n", runtime_output.c_str());
+			return false;
+		}
+
+		if (strcmp(runtime_output.c_str(), expected_output) != 0)
+		{
+			printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
+			printf("Program output:\n%s\n", runtime_output.c_str());
+			return false;
+		}
+
 		printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
+
 		return true;
-	}
-	
-	std::string assembler_output;
-	int assembler_error = exec_process("yasm -f elf64 test.asm", assembler_output);
-	if (assembler_error != 0)
-	{
-		printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
-		printf("Assembler returned %d\n", assembler_error);
-		printf("Assembler output:\n%s\n", assembler_output.c_str());
-		return false;
-	}
-	
-	std::string linker_output;
-	int linker_error = exec_process("ld -o test test.o", linker_output);
-	if (linker_error != 0)
-	{
-		printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
-		printf("Linker returned %d\n", linker_error);
-		printf("Linker output:\n%s\n", linker_output.c_str());
-		return false;
-	}
-	
-	std::string runtime_output;
-	int runtime_error = exec_process("./test", runtime_output);
-	if (runtime_error != 0)
-	{
-		printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
-		printf("Program returned %d\n", runtime_error);
-		printf("Program output:\n%s\n", runtime_output.c_str());
-		return false;
-	}
-	
-	if (strcmp(runtime_output.c_str(), expected_output) != 0)
-	{
-		printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
-		printf("Program output:\n%s\n", runtime_output.c_str());
-		return false;
-	}
-	
-	printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
-	return true;
+	}();
+
+	remove(executable_name);
+
+	return success;
 }
 
 struct TestData
