@@ -225,11 +225,28 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	}
 	if (!main_defined) log_error("No main function defined");
 
-	fprintf(file, "    global    _start\n");
+	const char* entry_point_name;
+	const char* write_syscall;
+	const char* exit_syscall;
+
+	if (get_platform() == Platform::Linux)
+	{
+		entry_point_name = "_start";
+		write_syscall = "1";
+		exit_syscall = "60";
+	}
+	else if (get_platform() == Platform::MacOS)
+	{
+		entry_point_name = "start";
+		write_syscall = "0x2000004";
+		exit_syscall = "0x2000001";
+	}
+
+	fprintf(file, "    global    %s\n", entry_point_name);
 	fprintf(file, "\n");
 	fprintf(file, "    section   .text\n");
 	fprintf(file, "\n");
-	fprintf(file, "_start:\n");
+	fprintf(file, "%s:\n", entry_point_name);
 	fprintf(file, "    call main\n");
 	fprintf(file, "    call exit\n");
 	fprintf(file, "\n");
@@ -244,7 +261,7 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 
 	fprintf(file, "; intrinsics\n");
 	fprintf(file, "exit:\n");
-	fprintf(file, "    mov rax, 60\n");
+	fprintf(file, "    mov rax, %s\n", exit_syscall);
 	fprintf(file, "    xor rdi, rdi\n");
 	fprintf(file, "    syscall\n");
 	fprintf(file, "\n");
@@ -262,7 +279,7 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "    mov [rsi], dl\n");
 	fprintf(file, "    test eax, eax\n");
 	fprintf(file, "    jnz .toascii_digit\n");
-	fprintf(file, "    mov eax, 1\n");
+	fprintf(file, "    mov eax, %s\n", write_syscall);
 	fprintf(file, "    mov edi, 1\n");
 	fprintf(file, "    lea edx, [rsp+16 + 1]\n");
 	fprintf(file, "    sub edx, esi\n");
@@ -272,14 +289,14 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 
 	fprintf(file, "print_bool:\n");
 	fprintf(file, "    test dil, dil\n");
-	fprintf(file, "    mov       rax, 1\n");
+	fprintf(file, "    mov       rax, %s\n", write_syscall);
 	fprintf(file, "    mov       rdi, 1\n");
 	fprintf(file, "    jz .is_zero\n");
-	fprintf(file, "    mov       rsi, bool_print_true_msg\n");
+	fprintf(file, "    mov       rsi, qword bool_print_true_msg\n");
 	fprintf(file, "    mov       rdx, 5\n");
 	fprintf(file, "    jmp .print\n");
 	fprintf(file, ".is_zero:\n");
-	fprintf(file, "    mov       rsi, bool_print_false_msg\n");
+	fprintf(file, "    mov       rsi, qword bool_print_false_msg\n");
 	fprintf(file, "    mov       rdx, 6\n");
 	fprintf(file, ".print:\n");
 	fprintf(file, "    syscall\n");

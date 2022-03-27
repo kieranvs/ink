@@ -237,7 +237,14 @@ int main(int argc, char** argv)
 	{
 		std::string assembler_output;
 		char assembler_command[512];
-		snprintf(assembler_command, 512, "yasm -f elf64 %s -o %s", asm_file_name.c_str(), obj_file_name.c_str());
+
+		const char* binary_format;
+		if (get_platform() == Platform::Linux)
+			binary_format = "elf64";
+		else if (get_platform() == Platform::MacOS)
+			binary_format = "macho64";
+
+		snprintf(assembler_command, 512, "yasm -f %s %s -o %s", binary_format, asm_file_name.c_str(), obj_file_name.c_str());
 		int assembler_error = exec_process(assembler_command, assembler_output);
 		if (assembler_error != 0)
 		{
@@ -252,7 +259,10 @@ int main(int argc, char** argv)
 	{
 		std::string linker_output;
 		char linker_command[512];
-		snprintf(linker_command, 512, "ld -o %s %s", options.output_binary.value().c_str(), obj_file_name.c_str());
+		const char* extra_str = "";
+		if (get_platform() == Platform::MacOS)
+			extra_str = "-static ";
+		snprintf(linker_command, 512, "ld %s-o %s %s", extra_str, options.output_binary.value().c_str(), obj_file_name.c_str());
 		int linker_error = exec_process(linker_command, linker_output);
 		if (linker_error != 0)
 		{

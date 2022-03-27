@@ -14,3 +14,19 @@ void add_file_to_delete_at_exit(const std::string& file);
 void delete_exit_files();
 
 int exec_process(const char* cmd, std::string& output);
+
+enum class Platform
+{
+	Linux,
+	MacOS
+};
+inline constexpr Platform get_platform()
+{
+#if defined(__linux__)
+	return Platform::Linux;
+#elif defined(__APPLE__)
+	return Platform::MacOS;
+#else
+	#error "Unsupported platform"
+#endif
+}
