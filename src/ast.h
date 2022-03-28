@@ -37,9 +37,10 @@ struct AstNode
 {
 	AstNodeType type = AstNodeType::None;
 
-	size_t child0;
-	size_t child1;
-	std::optional<size_t> next;
+	size_t child0; // LHS or only child, condition expr for if
+	size_t child1; // RHS, if branch for if
+	std::optional<size_t> next; // Next in block for statements
+	std::optional<size_t> aux; // Else branch for if
 
 	struct DataLiteralInt
 	{

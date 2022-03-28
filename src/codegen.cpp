@@ -157,12 +157,39 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	}
 	else if (ast[index].type == AstNodeType::If)
 	{
+		// Else branch is stored in aux
+		bool else_branch = ast[index].aux.has_value();
+
+		// L0 is used to jump over the if branch
+		size_t L0 = symbol_table.functions[function_index].next_label++;
+		// L1 is used to jump over the else branch
+		size_t L1 = 0;
+		if (else_branch)
+			L1 = symbol_table.functions[function_index].next_label++;
+
+		// Evaluate the condition
 		codegen_expr(ast, symbol_table, file, ast[index].child0);
 		fprintf(file, "    test %s, %s\n", register_name(0, 1), register_name(0, 1));
-		size_t label_index = symbol_table.functions[function_index].next_label++;
-		fprintf(file, "    jz .L%zd\n", label_index);
+
+		fprintf(file, "    jz .L%zd\n", L0);
+
+		// If branch code
 		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index);
-		fprintf(file, ".L%zd:\n", label_index);
+		if (else_branch) // If there is an else branch, skip over it
+			fprintf(file, "    jmp .L%zd\n", L1);
+
+		// L0 is at the end of the if branch
+		fprintf(file, ".L%zd:\n", L0);
+
+		if (else_branch)
+		{
+			// Else branch code
+			codegen_statement(ast, symbol_table, file, ast[index].aux.value(), function_index);
+
+			// L1 is at the end of the else branch
+			fprintf(file, ".L%zd:\n", L1);
+		}
+
 		if (ast[index].next.has_value())
 			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
 

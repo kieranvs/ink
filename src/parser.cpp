@@ -262,9 +262,23 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		if (!block_node.has_value())
 			log_error(brace_token, "Empty body not allowed");
 
+		// Parse else block
+		std::optional<size_t> else_block_node;
+		if (parser.next_is(TokenType::KeywordElse))
+		{
+			auto& else_token = parser.get();
+
+			auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
+
+			else_block_node = parse_block(parser, ast, symbol_table, scope_index, true);
+			if (!else_block_node.has_value())
+				log_error(brace_token, "Empty body not allowed");
+		}
+
 		size_t if_node = ast.make(AstNodeType::If);
 		ast[if_node].child0 = expr_node;
 		ast[if_node].child1 = block_node.value();
+		ast[if_node].aux = else_block_node;
 
 		return if_node;
 	}

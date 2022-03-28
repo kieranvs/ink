@@ -92,6 +92,27 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		fprintf(output, "Function call arg\n");
 		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
 	}
+	else if (ast[index].type == AstNodeType::If)
+	{
+		fprintf(output, "If\n");
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "Then\n");
+		dump_ast(output, symbol_table, ast, ast[index].child1, indent + 1);
+
+		if (ast[index].aux.has_value())
+		{
+			for (int i = 0; i < indent; i++)
+				fprintf(output, "  ");
+			fprintf(output, "Else\n");
+			dump_ast(output, symbol_table, ast, ast[index].aux.value(), indent + 1);
+		}
+
+		if (ast[index].next.has_value())
+			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in dump_ast");
