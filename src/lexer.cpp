@@ -146,6 +146,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.type = TokenType::KeywordElse;
 			else if (identifier_string == "while")
 				new_token.type = TokenType::KeywordWhile;
+			else if (identifier_string == "for")
+				new_token.type = TokenType::KeywordFor;
 			else if (identifier_string == "true")
 			{
 				new_token.type = TokenType::LiteralBool;

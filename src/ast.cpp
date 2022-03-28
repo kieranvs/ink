@@ -126,6 +126,38 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		if (ast[index].next.has_value())
 			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
 	}
+	else if (ast[index].type == AstNodeType::For)
+	{
+		auto init_node = ast[index].child0;
+		auto cond_node = ast[init_node].aux.value();
+		auto incr_node = ast[cond_node].aux.value();
+		auto body_node = ast[index].child1;
+
+		fprintf(output, "For\n");
+
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "Init\n");
+		dump_ast(output, symbol_table, ast, init_node, indent + 1);
+
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "While\n");
+		dump_ast(output, symbol_table, ast, cond_node, indent + 1);
+
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "Increment\n");
+		dump_ast(output, symbol_table, ast, incr_node, indent + 1);
+
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "Do\n");
+		dump_ast(output, symbol_table, ast, body_node, indent + 1);
+
+		if (ast[index].next.has_value())
+			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in dump_ast");

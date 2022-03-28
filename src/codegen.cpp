@@ -216,6 +216,39 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		if (ast[index].next.has_value())
 			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
 	}
+	else if (ast[index].type == AstNodeType::For)
+	{
+		auto init_node = ast[index].child0;
+		auto cond_node = ast[init_node].aux.value();
+		auto incr_node = ast[cond_node].aux.value();
+		auto body_node = ast[index].child1;
+
+		size_t start_label = symbol_table.functions[function_index].next_label++;
+		size_t end_label = symbol_table.functions[function_index].next_label++;
+
+		// Initialiser
+		codegen_statement(ast, symbol_table, file, init_node, function_index);
+
+		fprintf(file, ".L%zd:\n", start_label);
+
+		// Evaluate the condition
+		codegen_expr(ast, symbol_table, file, cond_node);
+		fprintf(file, "    test %s, %s\n", register_name(0, 1), register_name(0, 1));
+
+		fprintf(file, "    jz .L%zd\n", end_label);
+
+		// Body
+		codegen_statement(ast, symbol_table, file, body_node, function_index);
+
+		// Incrementer
+		codegen_statement(ast, symbol_table, file, incr_node, function_index);
+
+		fprintf(file, "    jmp .L%zd\n", start_label);
+		fprintf(file, ".L%zd:\n", end_label);
+
+		if (ast[index].next.has_value())
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in code gen");

@@ -183,7 +183,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 	return expr_nodes.top();
 }
 
-size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index)
+size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token = TokenType::StatementEnd)
 {
 	// Assignment to existing variable
 	if (parser.next_is(TokenType::Identifier, TokenType::Assign))
@@ -191,7 +191,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& ident_token = parser.get();
 		auto& assign_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str);
@@ -214,7 +214,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& ident_token = parser.get();
 		auto& assign_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
 		size_t var_node = ast.make(AstNodeType::Variable);
 
 		auto& scope = symbol_table.scopes[scope_index];
@@ -241,7 +241,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	{
 		auto& return_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
 
 		size_t return_node = ast.make(AstNodeType::Return);
 		ast[return_node].child0 = expr_node;
@@ -303,10 +303,35 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		return while_node;
 	}
+	// For loop
+	else if (parser.next_is(TokenType::KeywordFor))
+	{
+		auto& for_token = parser.get();
+
+		parser.get_if(TokenType::ParenthesisLeft, "Expected (");
+
+		auto init_node = parse_statement(parser, ast, symbol_table, scope_index);
+		auto cond_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
+		auto incr_node = parse_statement(parser, ast, symbol_table, scope_index, TokenType::ParenthesisRight);
+
+		auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
+
+		auto block_node = parse_block(parser, ast, symbol_table, scope_index, true);
+		if (!block_node.has_value())
+			log_error(brace_token, "Empty body not allowed");
+
+		size_t for_node = ast.make(AstNodeType::For);
+		ast[for_node].child0 = init_node;
+		ast[for_node].child1 = block_node.value();
+		ast[init_node].aux = cond_node;
+		ast[cond_node].aux = incr_node;
+
+		return for_node;
+	}
 	// Expression
 	else
 	{
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
 
 		size_t expr_statement_node = ast.make(AstNodeType::ExpressionStatement);
 		ast[expr_statement_node].child0 = expr_node;

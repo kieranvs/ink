@@ -31,7 +31,8 @@ enum class AstNodeType
 	FunctionCall,
 	FunctionCallArg,
 	If,
-	While
+	While,
+	For
 };
 
 struct AstNode

@@ -247,6 +247,30 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 
 		return invalid_type_annotation;
 	}
+	else if (ast[index].type == AstNodeType::For)
+	{
+		auto init_node = ast[index].child0;
+		auto cond_node = ast[init_node].aux.value();
+		auto incr_node = ast[cond_node].aux.value();
+		auto body_node = ast[index].child1;
+
+		auto init_ta = type_check_ast(symbol_table, ast, init_node, return_type_index);
+		auto cond_ta = type_check_ast(symbol_table, ast, cond_node, return_type_index);
+		auto incr_ta = type_check_ast(symbol_table, ast, incr_node, return_type_index);
+		auto body_ta = type_check_ast(symbol_table, ast, body_node, return_type_index);
+
+		TypeAnnotation bool_ta;
+		bool_ta.special = false;
+		bool_ta.type_index = intrinsic_type_index_bool;
+
+		if (!can_assign(bool_ta, cond_ta))
+			log_error("Condition doesn't match type bool");
+
+		if (ast[index].next.has_value())
+			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
+
+		return invalid_type_annotation;
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in type_check");

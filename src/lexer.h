@@ -10,6 +10,7 @@ enum class TokenType
 	KeywordIf,
 	KeywordElse,
 	KeywordWhile,
+	KeywordFor,
 	ParenthesisLeft,
 	ParenthesisRight,
 	BraceLeft,
