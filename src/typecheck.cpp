@@ -215,6 +215,9 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto cond_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 		auto body_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
 
+		if (ast[index].aux.has_value())
+			auto else_ta = type_check_ast(symbol_table, ast, ast[index].aux.value(), return_type_index);
+
 		TypeAnnotation bool_ta;
 		bool_ta.special = false;
 		bool_ta.type_index = intrinsic_type_index_bool;
