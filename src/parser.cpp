@@ -310,13 +310,19 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		parser.get_if(TokenType::ParenthesisLeft, "Expected (");
 
-		auto init_node = parse_statement(parser, ast, symbol_table, scope_index);
-		auto cond_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::StatementEnd);
-		auto incr_node = parse_statement(parser, ast, symbol_table, scope_index, TokenType::ParenthesisRight);
+		// Create inner scope manually, rather than in parse_block, because we want
+		// to use it for the initialiser statement
+		symbol_table.scopes.emplace_back();
+		auto inner_scope = symbol_table.scopes.size() - 1;
+		symbol_table.scopes[inner_scope].parent = scope_index;
+
+		auto init_node = parse_statement(parser, ast, symbol_table, inner_scope);
+		auto cond_node = parse_expression(parser, ast, symbol_table, inner_scope, TokenType::StatementEnd);
+		auto incr_node = parse_statement(parser, ast, symbol_table, inner_scope, TokenType::ParenthesisRight);
 
 		auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
 
-		auto block_node = parse_block(parser, ast, symbol_table, scope_index, true);
+		auto block_node = parse_block(parser, ast, symbol_table, inner_scope, false);
 		if (!block_node.has_value())
 			log_error(brace_token, "Empty body not allowed");
 
