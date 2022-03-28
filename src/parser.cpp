@@ -50,8 +50,10 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 	auto priority = [](const Token& t)
 	{
-		if (t.type == TokenType::OperatorPlus) return 1;
+		     if (t.type == TokenType::OperatorPlus)     return 1;
+		else if (t.type == TokenType::OperatorMinus)	return 1;
 		else if (t.type == TokenType::OperatorMultiply)	return 2;
+		else if (t.type == TokenType::OperatorDivide)	return 2;
 		else return 0;
 	};
 
@@ -69,7 +71,9 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 		size_t node;
 		if (top.type == TokenType::OperatorPlus)          node = ast.make(AstNodeType::BinOpAdd);
+		else if (top.type == TokenType::OperatorMinus)    node = ast.make(AstNodeType::BinOpSub);
 		else if (top.type == TokenType::OperatorMultiply)    node = ast.make(AstNodeType::BinOpMul);
+		else if (top.type == TokenType::OperatorDivide)    node = ast.make(AstNodeType::BinOpDiv);
 		else if (top.type == TokenType::CompareGreater)      node = ast.make(AstNodeType::BinCompGreater);
 		else if (top.type == TokenType::CompareGreaterEqual) node = ast.make(AstNodeType::BinCompGreaterEqual);
 		else if (top.type == TokenType::CompareLess)         node = ast.make(AstNodeType::BinCompLess);
@@ -100,7 +104,9 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			expr_nodes.push(node);
 		}
 		else if (next_token.type == TokenType::OperatorPlus
+			  || next_token.type == TokenType::OperatorMinus
 			  || next_token.type == TokenType::OperatorMultiply
+			  || next_token.type == TokenType::OperatorDivide
 			  || next_token.type == TokenType::CompareGreater
 			  || next_token.type == TokenType::CompareGreaterEqual
 			  || next_token.type == TokenType::CompareLess

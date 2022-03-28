@@ -178,8 +178,12 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			new_token.type = TokenType::CompareLess;
 		else if (lexer.get_if('*'))
 			new_token.type = TokenType::OperatorMultiply;
+		else if (lexer.get_if('/'))
+			new_token.type = TokenType::OperatorDivide;
 		else if (lexer.get_if('+'))
 			new_token.type = TokenType::OperatorPlus;
+		else if (lexer.get_if('-'))
+			new_token.type = TokenType::OperatorMinus;
 		else if (lexer.get_if('='))
 			new_token.type = TokenType::Assign;
 		else if (lexer.get_if(';'))

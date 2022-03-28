@@ -58,7 +58,9 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 			fprintf(file, "    mov %s, %d\n", register_name(0, 1), 0);
 	}
 	else if (ast[index].type == AstNodeType::BinOpAdd
+		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul
+		  || ast[index].type == AstNodeType::BinOpDiv
 		  || ast[index].type == AstNodeType::BinCompGreater
 		  || ast[index].type == AstNodeType::BinCompGreaterEqual
 		  || ast[index].type == AstNodeType::BinCompLess
@@ -74,8 +76,15 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 
 		if (ast[index].type == AstNodeType::BinOpAdd)
 			fprintf(file, "    add %s, %s\n", register_name(0, 8), register_name(2, 8));
+		else if (ast[index].type == AstNodeType::BinOpSub)
+			fprintf(file, "    sub %s, %s\n", register_name(0, 8), register_name(2, 8));
 		else if (ast[index].type == AstNodeType::BinOpMul)
 			fprintf(file, "    mul %s\n", register_name(2, 8));
+		else if (ast[index].type == AstNodeType::BinOpDiv)
+		{
+			fprintf(file, "    mov %s, %d\n", register_name(3, 8), 0);
+			fprintf(file, "    div %s\n", register_name(2, 8));
+		}
 		else
 		{
 			fprintf(file, "    cmp %s, %s\n", register_name(0, 8), register_name(2, 8));
@@ -123,6 +132,10 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		}
 
 		fprintf(file, "    call %s\n", func.name.c_str());
+	}
+	else
+	{
+		internal_error("Unhandled AST node type in code gen (codegen_expr)");
 	}
 }
 
@@ -251,7 +264,7 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	}
 	else
 	{
-		internal_error("Unhandled AST node type in code gen");
+		internal_error("Unhandled AST node type in code gen (codegen_statement)");
 	}
 }
 

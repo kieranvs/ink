@@ -19,6 +19,8 @@ enum class TokenType
 	LiteralBool,
 	OperatorPlus,
 	OperatorMultiply,
+	OperatorMinus,
+	OperatorDivide,
 	CompareGreater,
 	CompareGreaterEqual,
 	CompareLess,

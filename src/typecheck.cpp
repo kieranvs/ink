@@ -93,7 +93,11 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		ta.special = true;
 		return ta;
 	}
-	else if (ast[index].type == AstNodeType::BinOpAdd || ast[index].type == AstNodeType::BinOpMul)
+	else if (ast[index].type == AstNodeType::BinOpAdd
+		  || ast[index].type == AstNodeType::BinOpSub
+		  || ast[index].type == AstNodeType::BinOpMul
+		  || ast[index].type == AstNodeType::BinOpDiv
+		  )
 	{
 		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
