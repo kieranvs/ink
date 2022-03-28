@@ -77,6 +77,14 @@ bool can_combine(TypeAnnotation& lhs, TypeAnnotation& rhs, TypeAnnotation& expr_
 	}
 }
 
+bool is_number_type(TypeAnnotation& ta)
+{
+	if (ta.special)
+		return ta.type_index == special_type_index_literal_int;
+	else
+		return ta.type_index == intrinsic_type_index_int;
+}
+
 TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, size_t return_type_index)
 {
 	if (ast[index].type == AstNodeType::LiteralInt)
@@ -102,6 +110,9 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
 
+		if (!is_number_type(lhs_ta) || !is_number_type(rhs_ta))
+			log_error("Non number type");
+
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
 			log_error("Type mismatch");
@@ -118,6 +129,16 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 	{
 		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
+
+		if (ast[index].type == AstNodeType::BinCompGreater
+		  || ast[index].type == AstNodeType::BinCompGreaterEqual
+		  || ast[index].type == AstNodeType::BinCompLess
+		  || ast[index].type == AstNodeType::BinCompLessEqual
+		  )
+		{
+			if (!is_number_type(lhs_ta) || !is_number_type(rhs_ta))
+				log_error("Non number type");
+		}
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
