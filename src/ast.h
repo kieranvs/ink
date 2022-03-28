@@ -30,7 +30,8 @@ enum class AstNodeType
 	FunctionDefinition,
 	FunctionCall,
 	FunctionCallArg,
-	If
+	If,
+	While
 };
 
 struct AstNode

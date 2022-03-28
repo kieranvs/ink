@@ -282,6 +282,27 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		return if_node;
 	}
+	// While loop
+	else if (parser.next_is(TokenType::KeywordWhile))
+	{
+		auto& while_token = parser.get();
+
+		parser.get_if(TokenType::ParenthesisLeft, "Expected (");
+
+		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, TokenType::ParenthesisRight);
+
+		auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
+
+		auto block_node = parse_block(parser, ast, symbol_table, scope_index, true);
+		if (!block_node.has_value())
+			log_error(brace_token, "Empty body not allowed");
+
+		size_t while_node = ast.make(AstNodeType::While);
+		ast[while_node].child0 = expr_node;
+		ast[while_node].child1 = block_node.value();
+
+		return while_node;
+	}
 	// Expression
 	else
 	{

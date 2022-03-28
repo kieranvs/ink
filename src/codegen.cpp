@@ -194,6 +194,28 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
 
 	}
+	else if (ast[index].type == AstNodeType::While)
+	{
+		size_t start_label = symbol_table.functions[function_index].next_label++;
+		size_t end_label = symbol_table.functions[function_index].next_label++;
+
+		fprintf(file, ".L%zd:\n", start_label);
+
+		// Evaluate the condition
+		codegen_expr(ast, symbol_table, file, ast[index].child0);
+		fprintf(file, "    test %s, %s\n", register_name(0, 1), register_name(0, 1));
+
+		fprintf(file, "    jz .L%zd\n", end_label);
+
+		// Body
+		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index);
+
+		fprintf(file, "    jmp .L%zd\n", start_label);
+		fprintf(file, ".L%zd:\n", end_label);
+
+		if (ast[index].next.has_value())
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in code gen");

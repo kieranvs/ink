@@ -113,6 +113,19 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		if (ast[index].next.has_value())
 			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
 	}
+	else if (ast[index].type == AstNodeType::While)
+	{
+		fprintf(output, "While\n");
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "Do\n");
+		dump_ast(output, symbol_table, ast, ast[index].child1, indent + 1);
+
+		if (ast[index].next.has_value())
+			dump_ast(output, symbol_table, ast, ast[index].next.value(), indent);
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in dump_ast");
