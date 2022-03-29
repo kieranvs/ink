@@ -27,6 +27,8 @@ enum class TokenType
 	CompareLessEqual,
 	CompareEqual,
 	CompareNotEqual,
+	LogicalOr,
+	LogicalAnd,
 	Identifier,
 	Assign,
 	StatementEnd,

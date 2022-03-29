@@ -16,23 +16,31 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	else if (ast[index].type == AstNodeType::LiteralBool)
 		fprintf(output, "%s\n", ast[index].data_literal_bool.value ? "true" : "false");
 	else if (ast[index].type == AstNodeType::BinOpAdd
+		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul
+		  || ast[index].type == AstNodeType::BinOpDiv
 		  || ast[index].type == AstNodeType::BinCompGreater
 		  || ast[index].type == AstNodeType::BinCompGreaterEqual
 		  || ast[index].type == AstNodeType::BinCompLess
 		  || ast[index].type == AstNodeType::BinCompLessEqual
 		  || ast[index].type == AstNodeType::BinCompEqual
 		  || ast[index].type == AstNodeType::BinCompNotEqual
+		  || ast[index].type == AstNodeType::BinLogicalAnd
+		  || ast[index].type == AstNodeType::BinLogicalOr
 		)
 	{
 		if (ast[index].type == AstNodeType::BinOpAdd) fprintf(output, "+\n");
+		if (ast[index].type == AstNodeType::BinOpSub) fprintf(output, "-\n");
 		if (ast[index].type == AstNodeType::BinOpMul) fprintf(output, "*\n");
+		if (ast[index].type == AstNodeType::BinOpDiv) fprintf(output, "/\n");
 		if (ast[index].type == AstNodeType::BinCompGreater) fprintf(output, ">\n");
 		if (ast[index].type == AstNodeType::BinCompGreaterEqual) fprintf(output, ">=\n");
 		if (ast[index].type == AstNodeType::BinCompLess) fprintf(output, "<\n");
 		if (ast[index].type == AstNodeType::BinCompLessEqual) fprintf(output, "<=\n");
 		if (ast[index].type == AstNodeType::BinCompEqual) fprintf(output, "==\n");
 		if (ast[index].type == AstNodeType::BinCompNotEqual) fprintf(output, "!=\n");
+		if (ast[index].type == AstNodeType::BinLogicalAnd) fprintf(output, "&&\n");
+		if (ast[index].type == AstNodeType::BinLogicalOr) fprintf(output, "||\n");
 
 		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
 		dump_ast(output, symbol_table, ast, ast[index].child1, indent + 1);

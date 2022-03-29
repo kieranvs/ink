@@ -77,6 +77,14 @@ bool can_combine(TypeAnnotation& lhs, TypeAnnotation& rhs, TypeAnnotation& expr_
 	}
 }
 
+bool is_bool_type(TypeAnnotation& ta)
+{
+	if (ta.special)
+		return ta.type_index == special_type_index_literal_bool;
+	else
+		return ta.type_index == intrinsic_type_index_bool;
+}
+
 bool is_number_type(TypeAnnotation& ta)
 {
 	if (ta.special)
@@ -147,6 +155,22 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		// Comparison makes bool
 		expr_ta.special = false;
 		expr_ta.type_index = intrinsic_type_index_bool;
+
+		return expr_ta;
+	}
+	else if (ast[index].type == AstNodeType::BinLogicalAnd
+		  || ast[index].type == AstNodeType::BinLogicalOr
+		  )
+	{
+		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
+		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
+
+		if (!is_bool_type(lhs_ta) || !is_bool_type(rhs_ta))
+			log_error("Non bool type");
+
+		TypeAnnotation expr_ta;
+		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
+			log_error("Type mismatch");
 
 		return expr_ta;
 	}

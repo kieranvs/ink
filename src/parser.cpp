@@ -62,7 +62,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		auto& top = operators.top();
 
 		if (expr_nodes.size() < 2)
-			log_error("Missing operand for binary operator");
+			log_error(top, "Missing operand for binary operator");
 		
 		size_t expr0 = expr_nodes.top();
 		expr_nodes.pop();
@@ -80,6 +80,8 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		else if (top.type == TokenType::CompareLessEqual)    node = ast.make(AstNodeType::BinCompLessEqual);
 		else if (top.type == TokenType::CompareEqual)        node = ast.make(AstNodeType::BinCompEqual);
 		else if (top.type == TokenType::CompareNotEqual)     node = ast.make(AstNodeType::BinCompNotEqual);
+		else if (top.type == TokenType::LogicalAnd)          node = ast.make(AstNodeType::BinLogicalAnd);
+		else if (top.type == TokenType::LogicalOr)           node = ast.make(AstNodeType::BinLogicalOr);
 
 		ast[node].child0 = expr0;
 		ast[node].child1 = expr1;
@@ -113,6 +115,8 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			  || next_token.type == TokenType::CompareLessEqual
 			  || next_token.type == TokenType::CompareEqual
 			  || next_token.type == TokenType::CompareNotEqual
+			  || next_token.type == TokenType::LogicalAnd
+			  || next_token.type == TokenType::LogicalOr
 			  )
 		{
 			while (!operators.empty() && priority(operators.top()) > priority(next_token)) // or they are the same and next_token is left assoc

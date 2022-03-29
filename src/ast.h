@@ -25,6 +25,8 @@ enum class AstNodeType
 	BinCompLessEqual,
 	BinCompEqual,
 	BinCompNotEqual,
+	BinLogicalAnd,
+	BinLogicalOr,
 	Variable,
 	Assignment,
 	Return,

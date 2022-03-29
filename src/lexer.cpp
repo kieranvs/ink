@@ -164,6 +164,10 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.data_str = identifier_string;
 			}
 		}
+		else if (lexer.get_if("&&"))
+			new_token.type = TokenType::LogicalAnd;
+		else if (lexer.get_if("||"))
+			new_token.type = TokenType::LogicalOr;
 		else if (lexer.get_if(">="))
 			new_token.type = TokenType::CompareGreaterEqual;
 		else if (lexer.get_if("<="))

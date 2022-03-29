@@ -67,6 +67,8 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		  || ast[index].type == AstNodeType::BinCompLessEqual
 		  || ast[index].type == AstNodeType::BinCompEqual
 		  || ast[index].type == AstNodeType::BinCompNotEqual
+		  || ast[index].type == AstNodeType::BinLogicalAnd
+		  || ast[index].type == AstNodeType::BinLogicalOr
 		)
 	{
 		codegen_expr(ast, symbol_table, file, ast[index].child0);
@@ -85,6 +87,10 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 			fprintf(file, "    mov %s, %d\n", register_name(3, 8), 0);
 			fprintf(file, "    div %s\n", register_name(2, 8));
 		}
+		else if (ast[index].type == AstNodeType::BinLogicalAnd)
+			fprintf(file, "    and %s, %s\n", register_name(0, 1), register_name(2, 1));
+		else if (ast[index].type == AstNodeType::BinLogicalOr)
+			fprintf(file, "    or %s, %s\n", register_name(0, 1), register_name(2, 1));
 		else
 		{
 			fprintf(file, "    cmp %s, %s\n", register_name(0, 8), register_name(2, 8));
