@@ -139,6 +139,21 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 
 		fprintf(file, "    call %s\n", func.name.c_str());
 	}
+	else if (ast[index].type == AstNodeType::AddressOf)
+	{
+		size_t variable_node_index = ast[index].child0;
+		if (ast[variable_node_index].type != AstNodeType::Variable)
+			internal_error("AddressOf non-variable node");
+
+		auto& scope = symbol_table.scopes[ast[variable_node_index].data_variable.scope_index];
+		auto& variable = scope.local_variables[ast[variable_node_index].data_variable.variable_index];
+		fprintf(file, "    lea %s, [rbp - %d]\n", register_name(0, 8), variable.stack_offset);
+	}
+	else if (ast[index].type == AstNodeType::Dereference)
+	{
+		codegen_expr(ast, symbol_table, file, ast[index].child0);
+		fprintf(file, "    mov %s, [%s]\n", register_name(0, 8), register_name(0, 8));
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in code gen (codegen_expr)");

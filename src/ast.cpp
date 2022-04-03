@@ -15,6 +15,14 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		fprintf(output, "%d\n", ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::LiteralBool)
 		fprintf(output, "%s\n", ast[index].data_literal_bool.value ? "true" : "false");
+	else if (ast[index].type == AstNodeType::Dereference
+		|| ast[index].type == AstNodeType::AddressOf)
+	{
+		if (ast[index].type == AstNodeType::Dereference) fprintf(output, "Dereference\n");
+		if (ast[index].type == AstNodeType::AddressOf) fprintf(output, "AddressOf\n");
+
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+	}
 	else if (ast[index].type == AstNodeType::BinOpAdd
 		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul
@@ -230,4 +238,32 @@ std::optional<size_t> SymbolTable::find_type(const std::string& name)
 	}
 
 	return std::nullopt;
+}
+
+size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)
+{
+	if (symbol_table.types[base_type].add_ptr_type.has_value())
+		return symbol_table.types[base_type].add_ptr_type.value();
+	else
+	{
+		symbol_table.types.emplace_back();
+		auto& type = symbol_table.types.back();
+		type.intrinsic = false;
+		type.data_size = 8;
+		type.is_pointer = true;
+		type.remove_ptr_type = base_type;
+
+		auto new_type_index = symbol_table.types.size() - 1;
+		symbol_table.types[base_type].add_ptr_type = new_type_index;
+
+		return new_type_index;
+	}
+}
+
+size_t get_type_remove_pointer(SymbolTable& symbol_table, size_t ptr_type)
+{
+	if (!symbol_table.types[ptr_type].is_pointer)
+		internal_error("Remove pointer from non-pointer type");
+	else
+		return symbol_table.types[ptr_type].remove_ptr_type;
 }

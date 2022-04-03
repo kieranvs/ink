@@ -22,9 +22,11 @@
 #define CONSOLE_CYN  "\x1B[36m"
 #define CONSOLE_WHT  "\x1B[37m"
 
+bool quiet = true;
+
 bool run_test(const char* input_file, int expected_error, const char* expected_output)
 {
-	printf("%s... ", input_file);
+	if (!quiet) printf("%s... ", input_file);
 	const char* executable_name = std::tmpnam(nullptr);
 
 	bool success = [&]()
@@ -35,16 +37,18 @@ bool run_test(const char* input_file, int expected_error, const char* expected_o
 		int compiler_error = exec_process(compiler_command, compiler_output);
 		if (compiler_error != expected_error)
 		{
+			if (quiet) printf("%s... ", input_file);
 			printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
 			printf("Compiler returned %d instead of expected %d\n", compiler_error, expected_error);
-			printf("Compiler output:\n%s\n", compiler_output.c_str());
+			if (!compiler_output.empty()) printf("Compiler output:\n%s", compiler_output.c_str());
+			printf("\n");
 			return false;
 		}
 
 		// Compile failed, which was expected
 		if (compiler_error != 0)
 		{
-			printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
+			if (!quiet) printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
 			return true;
 		}
 
@@ -54,6 +58,7 @@ bool run_test(const char* input_file, int expected_error, const char* expected_o
 		int runtime_error = exec_process(runtime_command, runtime_output);
 		if (runtime_error != 0)
 		{
+			if (quiet) printf("%s... ", input_file);
 			printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
 			printf("Program returned %d\n", runtime_error);
 			printf("Program output:\n%s\n", runtime_output.c_str());
@@ -62,12 +67,13 @@ bool run_test(const char* input_file, int expected_error, const char* expected_o
 
 		if (strcmp(runtime_output.c_str(), expected_output) != 0)
 		{
+			if (quiet) printf("%s... ", input_file);
 			printf("%sFailed!%s\n", CONSOLE_RED, CONSOLE_NRM);
 			printf("Program output:\n%s\n", runtime_output.c_str());
 			return false;
 		}
 
-		printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
+		if (!quiet) printf("%sPassed\n%s", CONSOLE_GRN, CONSOLE_NRM);
 
 		return true;
 	}();
@@ -84,8 +90,19 @@ struct TestData
 	std::string expected_output;
 };
 
-int main()
+int main(int argc, const char** argv)
 {
+	if (argc > 1)
+	{
+		if (strcmp(argv[1], "-v") == 0)
+			quiet = false;
+		else
+		{
+			printf("Unrecognised option\n");
+			exit(1);
+		}
+	}
+
 	std::vector<TestData> tests;
 	auto add_test = [&tests](const std::string& src, int error, const std::string& output = "")
 	{
@@ -171,7 +188,7 @@ int main()
 
 	for (int i = 0; i < num_tests; i++)
 	{
-		printf("[%d/%d] ", i + 1, num_tests);
+		if (!quiet) printf("[%d/%d] ", i + 1, num_tests);
 		bool pass = run_test(tests[i].source_file.c_str(), tests[i].expected_error, tests[i].expected_output.c_str());
 		if (pass)
 			num_pass += 1;
@@ -183,7 +200,7 @@ int main()
 	printf("%d/%d tests passed.\n", num_pass, num_tests);
 	printf("%s", CONSOLE_NRM);
 
-	if (!failures.empty())
+	if (!quiet && !failures.empty())
 	{
 		printf("\nFailures:\n");
 		for (auto& i : failures)

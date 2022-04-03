@@ -45,69 +45,112 @@ std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_
 size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token)
 {
 	std::stack<size_t> expr_nodes;
-	std::stack<Token> operators;
+	std::stack<std::pair<bool, Token>> operators; // first = is_binary
 	size_t index = 0;
 
-	auto priority = [](const Token& t)
+	auto priority = [](const std::pair<bool, Token>& token_pair)
 	{
+		auto& [token_binary, t] = token_pair;
+
+		if (!token_binary)
+		{
+			if (t.type == TokenType::Asterisk) return 99;
+		}
+
 		     if (t.type == TokenType::OperatorPlus)     return 1;
 		else if (t.type == TokenType::OperatorMinus)	return 1;
-		else if (t.type == TokenType::OperatorMultiply)	return 2;
+		else if (t.type == TokenType::Asterisk)	        return 2;
 		else if (t.type == TokenType::OperatorDivide)	return 2;
 		else return 0;
 	};
 
 	auto apply_op = [&operators, &expr_nodes, &ast]()
 	{
-		auto& top = operators.top();
-
-		if (expr_nodes.size() < 2)
-			log_error(top, "Missing operand for binary operator");
-		
-		size_t expr0 = expr_nodes.top();
-		expr_nodes.pop();
-		size_t expr1 = expr_nodes.top();
-		expr_nodes.pop();
+		auto& [top_binary, top] = operators.top();
 
 		size_t node;
-		if (top.type == TokenType::OperatorPlus)          node = ast.make(AstNodeType::BinOpAdd);
-		else if (top.type == TokenType::OperatorMinus)    node = ast.make(AstNodeType::BinOpSub);
-		else if (top.type == TokenType::OperatorMultiply)    node = ast.make(AstNodeType::BinOpMul);
-		else if (top.type == TokenType::OperatorDivide)    node = ast.make(AstNodeType::BinOpDiv);
-		else if (top.type == TokenType::CompareGreater)      node = ast.make(AstNodeType::BinCompGreater);
-		else if (top.type == TokenType::CompareGreaterEqual) node = ast.make(AstNodeType::BinCompGreaterEqual);
-		else if (top.type == TokenType::CompareLess)         node = ast.make(AstNodeType::BinCompLess);
-		else if (top.type == TokenType::CompareLessEqual)    node = ast.make(AstNodeType::BinCompLessEqual);
-		else if (top.type == TokenType::CompareEqual)        node = ast.make(AstNodeType::BinCompEqual);
-		else if (top.type == TokenType::CompareNotEqual)     node = ast.make(AstNodeType::BinCompNotEqual);
-		else if (top.type == TokenType::LogicalAnd)          node = ast.make(AstNodeType::BinLogicalAnd);
-		else if (top.type == TokenType::LogicalOr)           node = ast.make(AstNodeType::BinLogicalOr);
+		if (top_binary)
+		{
+			if (expr_nodes.size() < 2)
+				log_error(top, "Missing operand for binary operator");
 
-		ast[node].child0 = expr0;
-		ast[node].child1 = expr1;
+			size_t expr0 = expr_nodes.top();
+			expr_nodes.pop();
+			size_t expr1 = expr_nodes.top();
+			expr_nodes.pop();
+
+			     if (top.type == TokenType::OperatorPlus)        node = ast.make(AstNodeType::BinOpAdd);
+			else if (top.type == TokenType::OperatorMinus)       node = ast.make(AstNodeType::BinOpSub);
+			else if (top.type == TokenType::Asterisk)            node = ast.make(AstNodeType::BinOpMul);
+			else if (top.type == TokenType::OperatorDivide)      node = ast.make(AstNodeType::BinOpDiv);
+			else if (top.type == TokenType::CompareGreater)      node = ast.make(AstNodeType::BinCompGreater);
+			else if (top.type == TokenType::CompareGreaterEqual) node = ast.make(AstNodeType::BinCompGreaterEqual);
+			else if (top.type == TokenType::CompareLess)         node = ast.make(AstNodeType::BinCompLess);
+			else if (top.type == TokenType::CompareLessEqual)    node = ast.make(AstNodeType::BinCompLessEqual);
+			else if (top.type == TokenType::CompareEqual)        node = ast.make(AstNodeType::BinCompEqual);
+			else if (top.type == TokenType::CompareNotEqual)     node = ast.make(AstNodeType::BinCompNotEqual);
+			else if (top.type == TokenType::LogicalAnd)          node = ast.make(AstNodeType::BinLogicalAnd);
+			else if (top.type == TokenType::LogicalOr)           node = ast.make(AstNodeType::BinLogicalOr);
+			else
+				internal_error("Invalid binary operator");
+
+			ast[node].child0 = expr0;
+			ast[node].child1 = expr1;
+		}
+		else
+		{
+			if (!top_binary && expr_nodes.size() < 1)
+				log_error(top, "Missing operand for unary operator");
+
+			size_t expr0 = expr_nodes.top();
+			expr_nodes.pop();
+
+			if (top.type == TokenType::Asterisk)            node = ast.make(AstNodeType::Dereference);
+			else
+				internal_error("Invalid unary operator");
+
+			ast[node].child0 = expr0;
+		}
 
 		expr_nodes.push(node);
 		operators.pop();
 	};
 
+	bool prev_was_operator_or_nothing = true;
 	while (parser.has_more() && !parser.next_is(end_token))
 	{
 		auto& next_token = parser.get();
+		bool next_is_operator = true;
+
 		if (next_token.type == TokenType::LiteralInteger)
 		{
 			auto node = ast.make(AstNodeType::LiteralInt);
 			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
+			next_is_operator = false;
 		}
 		else if (next_token.type == TokenType::LiteralBool)
 		{
 			auto node = ast.make(AstNodeType::LiteralBool);
 			ast[node].data_literal_bool.value = next_token.data_bool;
 			expr_nodes.push(node);
+			next_is_operator = false;
 		}
-		else if (next_token.type == TokenType::OperatorPlus
+		// Unary operators
+		else if (prev_was_operator_or_nothing && next_token.type == TokenType::Asterisk)
+		{
+			while (!operators.empty() && priority(operators.top()) > priority({ false, next_token })) // or they are the same and next_token is left assoc
+			{
+				apply_op();
+			}
+
+			operators.push({ false, next_token });
+		}
+		// Binary operators
+		else if (!prev_was_operator_or_nothing && (
+				 next_token.type == TokenType::OperatorPlus
 			  || next_token.type == TokenType::OperatorMinus
-			  || next_token.type == TokenType::OperatorMultiply
+			  || next_token.type == TokenType::Asterisk
 			  || next_token.type == TokenType::OperatorDivide
 			  || next_token.type == TokenType::CompareGreater
 			  || next_token.type == TokenType::CompareGreaterEqual
@@ -117,14 +160,34 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			  || next_token.type == TokenType::CompareNotEqual
 			  || next_token.type == TokenType::LogicalAnd
 			  || next_token.type == TokenType::LogicalOr
-			  )
+			  ))
 		{
-			while (!operators.empty() && priority(operators.top()) > priority(next_token)) // or they are the same and next_token is left assoc
+			while (!operators.empty() && priority(operators.top()) > priority({ true, next_token })) // or they are the same and next_token is left assoc
 			{
 				apply_op();
 			}
 
-			operators.push(next_token);
+			operators.push({ true, next_token });
+		}
+		else if (next_token.type == TokenType::Ampersand)
+		{
+			auto ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
+
+			if (auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str))
+			{
+				auto node = ast.make(AstNodeType::Variable);
+				ast[node].data_variable.variable_index = variable_location.value().second;
+				ast[node].data_variable.scope_index = variable_location.value().first;
+
+				auto address_of_node = ast.make(AstNodeType::AddressOf);
+				ast[address_of_node].child0 = node;
+
+				expr_nodes.push(address_of_node);
+			}
+			else
+				log_error(ident_token, "Can't take address of non-variable");
+
+			next_is_operator = false;
 		}
 		else if (next_token.type == TokenType::Identifier)
 		{
@@ -170,11 +233,15 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			{
 				log_error(next_token, "Undefined variable");
 			}
+
+			next_is_operator = false;
 		}
 		else
 		{
 			log_error(next_token, "Unexpected token in expression");
 		}
+
+		prev_was_operator_or_nothing = next_is_operator;
 	}
 
 	if (!parser.has_more())
@@ -191,6 +258,35 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		log_error(end_of_expr_token, "Empty expression");
 
 	return expr_nodes.top();
+}
+
+bool next_matches_type(Parser& parser, SymbolTable& symbol_table)
+{
+	if (parser.next_is(TokenType::Identifier))
+	{
+		auto& type_token = parser.peek();
+
+		auto type_index = symbol_table.find_type(type_token.data_str);
+		return type_index.has_value();
+	}
+
+	return false;
+}
+
+size_t parse_type(Parser& parser, SymbolTable& symbol_table)
+{
+	auto& type_token = parser.get();
+	auto type_index = symbol_table.find_type(type_token.data_str);
+	if (!type_index.has_value())
+		log_error(type_token, "Unknown type");
+
+	while (parser.next_is(TokenType::Asterisk))
+	{
+		auto& asterisk_token = parser.get();
+		type_index = get_type_add_pointer(symbol_table, *type_index);
+	}
+
+	return type_index.value();
 }
 
 size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token = TokenType::StatementEnd)
@@ -218,9 +314,13 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		return assign_node;
 	}
 	// Assignment to new variable
-	else if (parser.next_is(TokenType::Identifier, TokenType::Identifier, TokenType::Assign))
+	else if (next_matches_type(parser, symbol_table))
 	{
-		auto& type_token = parser.get();
+		auto type_index = parse_type(parser, symbol_table);
+
+		if (!parser.next_is(TokenType::Identifier, TokenType::Assign))
+			log_error(parser.peek(), "Expected variable declaration");
+
 		auto& ident_token = parser.get();
 		auto& assign_token = parser.get();
 
@@ -229,11 +329,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		auto& scope = symbol_table.scopes[scope_index];
 
-		auto type_index = symbol_table.find_type(type_token.data_str);
-		if (!type_index.has_value())
-			log_error(type_token, "Unknown type");
-
-		auto variable_index = scope.make_variable(symbol_table, ident_token.data_str, type_index.value());
+		auto variable_index = scope.make_variable(symbol_table, ident_token.data_str, type_index);
 		if (!variable_index)
 			log_error(ident_token, "Duplicate variable");
 

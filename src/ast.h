@@ -36,7 +36,9 @@ enum class AstNodeType
 	FunctionCallArg,
 	If,
 	While,
-	For
+	For,
+	AddressOf,
+	Dereference
 };
 
 struct AstNode
@@ -113,6 +115,10 @@ struct Type
 	std::string name;
 	bool intrinsic;
 	size_t data_size;
+
+	bool is_pointer = false;
+	size_t remove_ptr_type;
+	std::optional<size_t> add_ptr_type;
 };
 
 struct SymbolTable;
@@ -149,3 +155,5 @@ struct SymbolTable
 };
 
 void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);
+size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type);
+size_t get_type_remove_pointer(SymbolTable& symbol_table, size_t ptr_type);

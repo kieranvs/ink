@@ -18,7 +18,7 @@ enum class TokenType
 	LiteralInteger,
 	LiteralBool,
 	OperatorPlus,
-	OperatorMultiply,
+	Asterisk,
 	OperatorMinus,
 	OperatorDivide,
 	CompareGreater,
@@ -33,7 +33,8 @@ enum class TokenType
 	Assign,
 	StatementEnd,
 	Comma,
-	Colon
+	Colon,
+	Ampersand
 };
 
 struct Token

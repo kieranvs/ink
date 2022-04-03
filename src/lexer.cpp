@@ -181,7 +181,7 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 		else if (lexer.get_if('<'))
 			new_token.type = TokenType::CompareLess;
 		else if (lexer.get_if('*'))
-			new_token.type = TokenType::OperatorMultiply;
+			new_token.type = TokenType::Asterisk;
 		else if (lexer.get_if('/'))
 			new_token.type = TokenType::OperatorDivide;
 		else if (lexer.get_if('+'))
@@ -204,6 +204,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			new_token.type = TokenType::Comma;
 		else if (lexer.get_if(':'))
 			new_token.type = TokenType::Colon;
+		else if (lexer.get_if('&'))
+			new_token.type = TokenType::Ampersand;
 		else
 			log_error(new_token, "Unrecognised token");
 

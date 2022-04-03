@@ -320,6 +320,33 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 
 		return invalid_type_annotation;
 	}
+	else if (ast[index].type == AstNodeType::AddressOf)
+	{
+		auto expr_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
+
+		if (expr_ta.special)
+			log_error("Address of literal");
+
+		TypeAnnotation ta;
+		ta.special = false;
+		ta.type_index = get_type_add_pointer(symbol_table, expr_ta.type_index);
+		return ta;
+	}
+	else if (ast[index].type == AstNodeType::Dereference)
+	{
+		auto expr_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
+
+		if (expr_ta.special)
+			log_error("Dereference of literal");
+
+		if (!symbol_table.types[expr_ta.type_index].is_pointer)
+			log_error("Dereference of non-pointer");
+
+		TypeAnnotation ta;
+		ta.special = false;
+		ta.type_index = get_type_remove_pointer(symbol_table, expr_ta.type_index);
+		return ta;
+	}
 	else
 	{
 		internal_error("Unhandled AST node type in type_check");
