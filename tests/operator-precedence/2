@@ -1,8 +1,0 @@
-// @test 17
-
-fn main() : int
-{
-    int x = 3 * 4 + 5;
-    print_uint32(x);
-    return 0;
-}
