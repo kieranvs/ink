@@ -136,6 +136,13 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
+		else if (next_token.type == TokenType::LiteralChar)
+		{
+			auto node = ast.make(AstNodeType::LiteralChar);
+			ast[node].data_literal_int.value = next_token.data_int;
+			expr_nodes.push(node);
+			next_is_operator = false;
+		}
 		// Unary operators
 		else if (prev_was_operator_or_nothing && next_token.type == TokenType::Asterisk)
 		{

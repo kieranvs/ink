@@ -139,6 +139,14 @@ int main(int argc, char** argv)
 	}
 
 	{
+		symbol_table.types.emplace_back();
+		auto& type = symbol_table.types.back();
+		type.intrinsic = true;
+		type.name = "char";
+		type.data_size = 1;
+	}
+
+	{
 		symbol_table.scopes.emplace_back();
 		auto scope_index = symbol_table.scopes.size() - 1;
 		auto& scope = symbol_table.scopes.back();
@@ -166,6 +174,22 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_bool";
+		func.parameters.push_back(0);
+		func.intrinsic = true;
+	}
+
+	{
+		symbol_table.scopes.emplace_back();
+		auto scope_index = symbol_table.scopes.size() - 1;
+		auto& scope = symbol_table.scopes.back();
+
+		scope.local_variables.emplace_back();
+		scope.local_variables.back().type_index = symbol_table.find_type("char").value();
+
+		symbol_table.functions.emplace_back();
+		auto& func = symbol_table.functions.back();
+		func.scope = scope_index;
+		func.name = "print_char";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}

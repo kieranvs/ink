@@ -57,6 +57,8 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		else
 			fprintf(file, "    mov %s, %d\n", register_name(0, 1), 0);
 	}
+	else if (ast[index].type == AstNodeType::LiteralChar)
+		fprintf(file, "    mov %s, %d\n", register_name(0, 8), ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::BinOpAdd
 		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul
@@ -416,6 +418,21 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "    mov       rdx, 6\n");
 	fprintf(file, ".print:\n");
 	fprintf(file, "    syscall\n");
+	fprintf(file, "    ret\n");
+
+	fprintf(file, "print_char:\n");
+	fprintf(file, "    push rbp\n");
+	fprintf(file, "    mov rbp, rsp\n");
+	fprintf(file, "    sub rsp, 16\n");
+	fprintf(file, "    mov [rsp], dil\n");
+	fprintf(file, "    mov rax, 10\n");
+	fprintf(file, "    mov [rsp + 1], %s\n", register_name(0, 1));
+	fprintf(file, "    mov rax, %s\n", write_syscall);
+	fprintf(file, "    mov rdi, 1\n");   // stdout
+	fprintf(file, "    mov rsi, rsp\n"); // address
+	fprintf(file, "    mov rdx, 2\n");   // length
+	fprintf(file, "    syscall\n");
+	fprintf(file, "    leave\n");
 	fprintf(file, "    ret\n");
 
 	fprintf(file, "    section .data\n");

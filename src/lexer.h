@@ -17,6 +17,7 @@ enum class TokenType
 	BraceRight,
 	LiteralInteger,
 	LiteralBool,
+	LiteralChar,
 	OperatorPlus,
 	Asterisk,
 	OperatorMinus,

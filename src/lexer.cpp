@@ -132,6 +132,16 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			new_token.type = TokenType::LiteralInteger;
 			new_token.data_int = x;
 		}
+		else if (lexer.get_if('\''))
+		{
+			char c = lexer.get();
+			char end = lexer.get();
+			if (end != '\'')
+				log_error(new_token, "Invalid char literal");
+
+			new_token.type = TokenType::LiteralChar;
+			new_token.data_int = c;
+		}
 		else if (valid_ident_start_char(lexer.peek()))
 		{
 			auto identifier_string = lexer.get_while(valid_ident_char);

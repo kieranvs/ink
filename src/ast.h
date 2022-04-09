@@ -15,6 +15,7 @@ enum class AstNodeType
 	None,
 	LiteralInt,
 	LiteralBool,
+	LiteralChar,
 	BinOpAdd,
 	BinOpSub,
 	BinOpMul,

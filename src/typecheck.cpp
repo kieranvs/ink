@@ -5,8 +5,10 @@
 size_t special_type_index_none = 0;
 size_t special_type_index_literal_int = 1;
 size_t special_type_index_literal_bool = 2;
+size_t special_type_index_literal_char = 3;
 size_t intrinsic_type_index_int;
 size_t intrinsic_type_index_bool;
+size_t intrinsic_type_index_char;
 
 struct TypeAnnotation
 {
@@ -24,9 +26,11 @@ TypeAnnotation invalid_type_annotation = [](size_t x){
 bool special_matches(size_t special, size_t actual)
 {
 	if (special == special_type_index_literal_int)
-		return actual == intrinsic_type_index_int;
+		return actual == intrinsic_type_index_int || actual == intrinsic_type_index_char;
 	else if (special == special_type_index_literal_bool)
 		return actual == intrinsic_type_index_bool;
+	else if (special == special_type_index_literal_char)
+		return actual == intrinsic_type_index_char;
 
 	return false;
 }
@@ -88,9 +92,9 @@ bool is_bool_type(TypeAnnotation& ta)
 bool is_number_type(TypeAnnotation& ta)
 {
 	if (ta.special)
-		return ta.type_index == special_type_index_literal_int;
+		return ta.type_index == special_type_index_literal_int || ta.type_index == special_type_index_literal_char;
 	else
-		return ta.type_index == intrinsic_type_index_int;
+		return ta.type_index == intrinsic_type_index_int || ta.type_index == intrinsic_type_index_char;
 }
 
 TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, size_t return_type_index)
@@ -106,6 +110,13 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 	{
 		TypeAnnotation ta;
 		ta.type_index = special_type_index_literal_bool;
+		ta.special = true;
+		return ta;
+	}
+	else if (ast[index].type == AstNodeType::LiteralChar)
+	{
+		TypeAnnotation ta;
+		ta.type_index = special_type_index_literal_char;
 		ta.special = true;
 		return ta;
 	}
@@ -357,6 +368,7 @@ void type_check(SymbolTable& symbol_table)
 {
 	intrinsic_type_index_int = symbol_table.find_type("int").value();
 	intrinsic_type_index_bool = symbol_table.find_type("bool").value();
+	intrinsic_type_index_char = symbol_table.find_type("char").value();
 
 	for (auto& func : symbol_table.functions)
 	{
