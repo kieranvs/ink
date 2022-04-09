@@ -10,6 +10,12 @@
 #include <string>
 #include <optional>
 
+struct TypeAnnotation
+{
+	size_t type_index;
+	bool special;
+};
+
 enum class AstNodeType
 {
 	None,
@@ -53,6 +59,7 @@ struct AstNode
 	std::optional<size_t> aux; // Else branch for if
 
 	SourceLocation location;
+	std::optional<TypeAnnotation> type_annotation;
 
 	struct DataLiteralInt
 	{
