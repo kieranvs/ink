@@ -193,6 +193,22 @@ int main(int argc, char** argv)
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
+
+	{
+		symbol_table.scopes.emplace_back();
+		auto scope_index = symbol_table.scopes.size() - 1;
+		auto& scope = symbol_table.scopes.back();
+
+		scope.local_variables.emplace_back();
+		scope.local_variables.back().type_index = get_type_add_pointer(symbol_table, symbol_table.find_type("char").value());
+
+		symbol_table.functions.emplace_back();
+		auto& func = symbol_table.functions.back();
+		func.scope = scope_index;
+		func.name = "print_string";
+		func.parameters.push_back(0);
+		func.intrinsic = true;
+	}
 	
 	parse_top_level(parser, symbol_table);
 

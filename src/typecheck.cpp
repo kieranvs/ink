@@ -120,6 +120,13 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		ta.special = true;
 		return ta;
 	}
+	else if (ast[index].type == AstNodeType::LiteralString)
+	{
+		TypeAnnotation ta;
+		ta.type_index = get_type_add_pointer(symbol_table, intrinsic_type_index_char);
+		ta.special = false;
+		return ta;
+	}
 	else if (ast[index].type == AstNodeType::BinOpAdd
 		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul

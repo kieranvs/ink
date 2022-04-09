@@ -16,6 +16,7 @@ enum class AstNodeType
 	LiteralInt,
 	LiteralBool,
 	LiteralChar,
+	LiteralString,
 	BinOpAdd,
 	BinOpSub,
 	BinOpMul,
@@ -61,6 +62,11 @@ struct AstNode
 		bool value;
 	};
 
+	struct DataLiteralString
+	{
+		size_t constant_string_index;
+	};
+
 	struct DataVariable
 	{
 		size_t scope_index;
@@ -82,6 +88,7 @@ struct AstNode
 	{
 		DataLiteralInt data_literal_int;
 		DataLiteralBool data_literal_bool;
+		DataLiteralString data_literal_string;
 		DataVariable data_variable;
 		DataFunctionDefinition data_function_definition;
 		DataFunctionCall data_function_call;
@@ -144,15 +151,24 @@ struct Function
 	size_t next_label = 0;
 };
 
+struct ConstantString
+{
+	ConstantString(const std::string& s) : str(s) {}
+
+	std::string str;
+};
+
 struct SymbolTable
 {
 	std::vector<Function> functions;
 	std::vector<Scope> scopes;
 	std::vector<Type> types;
+	std::vector<ConstantString> constant_strings;
 
 	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
+	size_t find_add_string(const std::string& str);
 };
 
 void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);

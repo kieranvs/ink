@@ -240,6 +240,18 @@ std::optional<size_t> SymbolTable::find_type(const std::string& name)
 	return std::nullopt;
 }
 
+size_t SymbolTable::find_add_string(const std::string& str)
+{
+	for (size_t i = 0; i < constant_strings.size(); i++)
+	{
+		if (constant_strings[i].str == str)
+			return i;
+	}
+
+	constant_strings.emplace_back(str);
+	return constant_strings.size() - 1;
+}
+
 size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)
 {
 	if (symbol_table.types[base_type].add_ptr_type.has_value())

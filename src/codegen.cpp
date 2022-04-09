@@ -59,6 +59,11 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 	}
 	else if (ast[index].type == AstNodeType::LiteralChar)
 		fprintf(file, "    mov %s, %d\n", register_name(0, 8), ast[index].data_literal_int.value);
+	else if (ast[index].type == AstNodeType::LiteralString)
+	{
+		auto str_index = ast[index].data_literal_string.constant_string_index;
+		fprintf(file, "    mov %s, qword LSTR%zu\n", register_name(0, 8), str_index);
+	}
 	else if (ast[index].type == AstNodeType::BinOpAdd
 		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul
@@ -435,7 +440,32 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	fprintf(file, "    leave\n");
 	fprintf(file, "    ret\n");
 
+	fprintf(file, "print_string:\n");
+	fprintf(file, "    push rbp\n");
+	fprintf(file, "    mov rbp, rsp\n");
+
+	fprintf(file, "    mov rsi, rdi\n"); // address
+
+	// Get length of string in rdx
+	fprintf(file, "    mov rdx, 0\n");
+	fprintf(file, ".loop:\n");
+	fprintf(file, "    mov rax, [rsi + rdx]\n");
+	fprintf(file, "    add rdx, 1\n");
+	fprintf(file, "    cmp al, 10\n");
+	fprintf(file, "    jne .loop\n");
+
+	fprintf(file, "    mov rax, %s\n", write_syscall);
+	fprintf(file, "    mov rdi, 1\n");   // stdout
+	fprintf(file, "    syscall\n");
+	fprintf(file, "    leave\n");
+	fprintf(file, "    ret\n");
+
 	fprintf(file, "    section .data\n");
 	fprintf(file, "bool_print_true_msg:  db        \"true\", 10\n");
 	fprintf(file, "bool_print_false_msg:  db        \"false\", 10\n");
+
+	for (size_t i = 0; i < symbol_table.constant_strings.size(); i++)
+	{
+		fprintf(file, "LSTR%zu: db \"%s\", 10\n", i, symbol_table.constant_strings[i].str.c_str());
+	}
 }

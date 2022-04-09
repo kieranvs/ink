@@ -143,6 +143,16 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
+		else if (next_token.type == TokenType::LiteralString)
+		{
+			auto node = ast.make(AstNodeType::LiteralString);
+
+			auto string_index = symbol_table.find_add_string(next_token.data_str);
+
+			ast[node].data_literal_string.constant_string_index = string_index;
+			expr_nodes.push(node);
+			next_is_operator = false;
+		}
 		// Unary operators
 		else if (prev_was_operator_or_nothing && next_token.type == TokenType::Asterisk)
 		{

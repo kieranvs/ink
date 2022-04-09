@@ -18,6 +18,7 @@ enum class TokenType
 	LiteralInteger,
 	LiteralBool,
 	LiteralChar,
+	LiteralString,
 	OperatorPlus,
 	Asterisk,
 	OperatorMinus,
