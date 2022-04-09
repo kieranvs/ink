@@ -119,10 +119,10 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 		// Patterns which do produce tokens next
 		tokens.emplace_back();
 		Token& new_token = tokens.back();
-		new_token.start_line = lexer.current_line;
-		new_token.start_col = lexer.current_col;
-		new_token.end_line = lexer.current_line;
-		new_token.end_col = lexer.current_col;
+		new_token.location.start_line = lexer.current_line;
+		new_token.location.start_col = lexer.current_col;
+		new_token.location.end_line = lexer.current_line;
+		new_token.location.end_col = lexer.current_col;
 
 		if (std::isdigit(lexer.peek()))
 		{
@@ -229,7 +229,7 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 		else
 			log_error(new_token, "Unrecognised token");
 
-		new_token.end_line = lexer.current_line;
-		new_token.end_col = lexer.current_col;
+		new_token.location.end_line = lexer.current_line;
+		new_token.location.end_col = lexer.current_col;
 	}
 }

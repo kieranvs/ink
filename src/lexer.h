@@ -39,14 +39,18 @@ enum class TokenType
 	Ampersand
 };
 
-struct Token
+struct SourceLocation
 {
-	TokenType type;
-
 	int start_line;
 	int start_col;
 	int end_line;
 	int end_col;
+};
+
+struct Token
+{
+	TokenType type;
+	SourceLocation location;
 
 	int data_int;
 	std::string data_str;

@@ -21,7 +21,7 @@ void internal_error(const char* message)
 	exit(1);
 }
 
-void log_error(const char* message)
+void log_general_error(const char* message)
 {
 	delete_exit_files();
 
@@ -29,15 +29,13 @@ void log_error(const char* message)
 	exit(101);
 }
 
-void log_error(const Token& token, const char* message)
+void log_error(const SourceLocation& location)
 {
-	delete_exit_files();
-
 	size_t current_line = 1;
 	size_t current_col = 1;
 	const char* current_ptr = file_source;
 
-	while (current_ptr && current_line != token.start_line)
+	while (current_ptr && current_line != location.start_line)
 	{
 		if (*current_ptr == '\n')
 		{
@@ -57,17 +55,34 @@ void log_error(const Token& token, const char* message)
 	}
 	printf("\n");
 
-	for (int i = 0; i < token.start_col - 1; i++)
+	for (int i = 0; i < location.start_col - 1; i++)
 		printf(" ");
 	printf("^");
 
-	if (token.start_line == token.end_line && token.end_col > token.start_col + 1)
+	if (location.start_line == location.end_line && location.end_col > location.start_col + 1)
 	{
-		for (int i = 0; i < token.end_col - token.start_col - 2; i++)
+		for (int i = 0; i < location.end_col - location.start_col - 2; i++)
 			printf("~");
 		printf("^");
 	}
 	printf("\n");
+}
+
+void log_error(const Token& token, const char* message)
+{
+	delete_exit_files();
+
+	log_error(token.location);
+
+	printf("%s\n", message);
+	exit(101);
+}
+
+void log_error(const AstNode& node, const char* message)
+{
+	delete_exit_files();
+
+	log_error(node.location);
 
 	printf("%s\n", message);
 	exit(101);

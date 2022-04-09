@@ -136,12 +136,15 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
 
-		if (!is_number_type(lhs_ta) || !is_number_type(rhs_ta))
-			log_error("Non number type");
+		if (!is_number_type(lhs_ta))
+			log_error(ast[ast[index].child0], "Non number type");
+
+		if (!is_number_type(rhs_ta))
+			log_error(ast[ast[index].child1], "Non number type");
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
-			log_error("Type mismatch");
+			log_error(ast[index], "Type mismatch");
 
 		return expr_ta;
 	}
@@ -162,13 +165,16 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		  || ast[index].type == AstNodeType::BinCompLessEqual
 		  )
 		{
-			if (!is_number_type(lhs_ta) || !is_number_type(rhs_ta))
-				log_error("Non number type");
+			if (!is_number_type(lhs_ta))
+				log_error(ast[ast[index].child0], "Non number type");
+
+			if (!is_number_type(rhs_ta))
+				log_error(ast[ast[index].child1], "Non number type");
 		}
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
-			log_error("Type mismatch");
+			log_error(ast[index], "Type mismatch");
 
 		// Comparison makes bool
 		expr_ta.special = false;
@@ -183,12 +189,15 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto lhs_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 		auto rhs_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
 
-		if (!is_bool_type(lhs_ta) || !is_bool_type(rhs_ta))
-			log_error("Non bool type");
+		if (!is_bool_type(lhs_ta))
+			log_error(ast[ast[index].child0], "Non bool type");
+
+		if (!is_bool_type(rhs_ta))
+			log_error(ast[ast[index].child1], "Non bool type");
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
-			log_error("Type mismatch");
+			log_error(ast[index], "Type mismatch");
 
 		return expr_ta;
 	}
@@ -209,7 +218,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto expr_ta = type_check_ast(symbol_table, ast, ast[index].child1, return_type_index);
 
 		if (!can_assign(variable_ta, expr_ta))
-			log_error("Assignment to incompatible type");
+			log_error(ast[index], "Assignment to incompatible type");
 		
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -225,7 +234,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		return_ta.special = false;
 
 		if (!can_assign(return_ta, expr_ta))
-			log_error("Mismatch with function return type");
+			log_error(ast[ast[index].child0], "Mismatch with function return type");
 
 		return invalid_type_annotation;
 	}
@@ -262,7 +271,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 				variable_ta.special = false;
 
 				if (!can_assign(variable_ta, expr_ta))
-					log_error("Argument has incompatible type");
+					log_error(ast[current_arg_node], "Argument has incompatible type");
 				
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}
@@ -290,7 +299,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		bool_ta.type_index = intrinsic_type_index_bool;
 
 		if (!can_assign(bool_ta, cond_ta))
-			log_error("Condition doesn't match type bool");
+			log_error(ast[ast[index].child0], "Condition doesn't match type bool");
 
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -307,7 +316,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		bool_ta.type_index = intrinsic_type_index_bool;
 
 		if (!can_assign(bool_ta, cond_ta))
-			log_error("Condition doesn't match type bool");
+			log_error(ast[ast[index].child0], "Condition doesn't match type bool");
 
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -331,7 +340,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		bool_ta.type_index = intrinsic_type_index_bool;
 
 		if (!can_assign(bool_ta, cond_ta))
-			log_error("Condition doesn't match type bool");
+			log_error(ast[cond_node], "Condition doesn't match type bool");
 
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -343,7 +352,7 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto expr_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 
 		if (expr_ta.special)
-			log_error("Address of literal");
+			log_error(ast[index], "Address of literal");
 
 		TypeAnnotation ta;
 		ta.special = false;
@@ -355,10 +364,10 @@ TypeAnnotation type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index,
 		auto expr_ta = type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 
 		if (expr_ta.special)
-			log_error("Dereference of literal");
+			log_error(ast[index], "Dereference of literal");
 
 		if (!symbol_table.types[expr_ta.type_index].is_pointer)
-			log_error("Dereference of non-pointer");
+			log_error(ast[index], "Dereference of non-pointer");
 
 		TypeAnnotation ta;
 		ta.special = false;

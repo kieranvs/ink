@@ -52,6 +52,8 @@ struct AstNode
 	std::optional<size_t> next; // Next in block for statements
 	std::optional<size_t> aux; // Else branch for if
 
+	SourceLocation location;
+
 	struct DataLiteralInt
 	{
 		int value;
@@ -99,11 +101,12 @@ struct Ast
 {
 	std::vector<AstNode> nodes;
 	
-	size_t make(AstNodeType type)
+	size_t make(AstNodeType type, const Token& token)
 	{
 		size_t index = nodes.size();
 		nodes.emplace_back();
 		nodes[index].type = type;
+		nodes[index].location = token.location;
 		return index;
 	}
 

@@ -79,18 +79,18 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			size_t expr1 = expr_nodes.top();
 			expr_nodes.pop();
 
-			     if (top.type == TokenType::OperatorPlus)        node = ast.make(AstNodeType::BinOpAdd);
-			else if (top.type == TokenType::OperatorMinus)       node = ast.make(AstNodeType::BinOpSub);
-			else if (top.type == TokenType::Asterisk)            node = ast.make(AstNodeType::BinOpMul);
-			else if (top.type == TokenType::OperatorDivide)      node = ast.make(AstNodeType::BinOpDiv);
-			else if (top.type == TokenType::CompareGreater)      node = ast.make(AstNodeType::BinCompGreater);
-			else if (top.type == TokenType::CompareGreaterEqual) node = ast.make(AstNodeType::BinCompGreaterEqual);
-			else if (top.type == TokenType::CompareLess)         node = ast.make(AstNodeType::BinCompLess);
-			else if (top.type == TokenType::CompareLessEqual)    node = ast.make(AstNodeType::BinCompLessEqual);
-			else if (top.type == TokenType::CompareEqual)        node = ast.make(AstNodeType::BinCompEqual);
-			else if (top.type == TokenType::CompareNotEqual)     node = ast.make(AstNodeType::BinCompNotEqual);
-			else if (top.type == TokenType::LogicalAnd)          node = ast.make(AstNodeType::BinLogicalAnd);
-			else if (top.type == TokenType::LogicalOr)           node = ast.make(AstNodeType::BinLogicalOr);
+			     if (top.type == TokenType::OperatorPlus)        node = ast.make(AstNodeType::BinOpAdd, top);
+			else if (top.type == TokenType::OperatorMinus)       node = ast.make(AstNodeType::BinOpSub, top);
+			else if (top.type == TokenType::Asterisk)            node = ast.make(AstNodeType::BinOpMul, top);
+			else if (top.type == TokenType::OperatorDivide)      node = ast.make(AstNodeType::BinOpDiv, top);
+			else if (top.type == TokenType::CompareGreater)      node = ast.make(AstNodeType::BinCompGreater, top);
+			else if (top.type == TokenType::CompareGreaterEqual) node = ast.make(AstNodeType::BinCompGreaterEqual, top);
+			else if (top.type == TokenType::CompareLess)         node = ast.make(AstNodeType::BinCompLess, top);
+			else if (top.type == TokenType::CompareLessEqual)    node = ast.make(AstNodeType::BinCompLessEqual, top);
+			else if (top.type == TokenType::CompareEqual)        node = ast.make(AstNodeType::BinCompEqual, top);
+			else if (top.type == TokenType::CompareNotEqual)     node = ast.make(AstNodeType::BinCompNotEqual, top);
+			else if (top.type == TokenType::LogicalAnd)          node = ast.make(AstNodeType::BinLogicalAnd, top);
+			else if (top.type == TokenType::LogicalOr)           node = ast.make(AstNodeType::BinLogicalOr, top);
 			else
 				internal_error("Invalid binary operator");
 
@@ -105,7 +105,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			size_t expr0 = expr_nodes.top();
 			expr_nodes.pop();
 
-			if (top.type == TokenType::Asterisk)            node = ast.make(AstNodeType::Dereference);
+			if (top.type == TokenType::Asterisk)            node = ast.make(AstNodeType::Dereference, top);
 			else
 				internal_error("Invalid unary operator");
 
@@ -117,6 +117,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 	};
 
 	bool prev_was_operator_or_nothing = true;
+	const Token* prev_token = nullptr;
 	while (parser.has_more() && !parser.next_is(end_token))
 	{
 		auto& next_token = parser.get();
@@ -124,28 +125,28 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 		if (next_token.type == TokenType::LiteralInteger)
 		{
-			auto node = ast.make(AstNodeType::LiteralInt);
+			auto node = ast.make(AstNodeType::LiteralInt, next_token);
 			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
 		else if (next_token.type == TokenType::LiteralBool)
 		{
-			auto node = ast.make(AstNodeType::LiteralBool);
+			auto node = ast.make(AstNodeType::LiteralBool, next_token);
 			ast[node].data_literal_bool.value = next_token.data_bool;
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
 		else if (next_token.type == TokenType::LiteralChar)
 		{
-			auto node = ast.make(AstNodeType::LiteralChar);
+			auto node = ast.make(AstNodeType::LiteralChar, next_token);
 			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
 		else if (next_token.type == TokenType::LiteralString)
 		{
-			auto node = ast.make(AstNodeType::LiteralString);
+			auto node = ast.make(AstNodeType::LiteralString, next_token);
 
 			auto string_index = symbol_table.find_add_string(next_token.data_str);
 
@@ -192,11 +193,11 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 			if (auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str))
 			{
-				auto node = ast.make(AstNodeType::Variable);
+				auto node = ast.make(AstNodeType::Variable, ident_token);
 				ast[node].data_variable.variable_index = variable_location.value().second;
 				ast[node].data_variable.scope_index = variable_location.value().first;
 
-				auto address_of_node = ast.make(AstNodeType::AddressOf);
+				auto address_of_node = ast.make(AstNodeType::AddressOf, next_token);
 				ast[address_of_node].child0 = node;
 
 				expr_nodes.push(address_of_node);
@@ -210,7 +211,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		{
 			if (auto variable_location = symbol_table.find_variable(scope_index, next_token.data_str))
 			{
-				auto node = ast.make(AstNodeType::Variable);
+				auto node = ast.make(AstNodeType::Variable, next_token);
 				ast[node].data_variable.variable_index = variable_location.value().second;
 				ast[node].data_variable.scope_index = variable_location.value().first;
 				expr_nodes.push(node);
@@ -219,7 +220,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			{
 				auto& function_ref = symbol_table.functions[function.value()];
 
-				auto func_call_node = ast.make(AstNodeType::FunctionCall);
+				auto func_call_node = ast.make(AstNodeType::FunctionCall, next_token);
 				ast[func_call_node].data_function_call.function_index = function.value();
 				expr_nodes.push(func_call_node);
 
@@ -229,8 +230,9 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 				for (int i = 0; i < function_ref.parameters.size(); i++)
 				{
 					auto end_token = (i == function_ref.parameters.size() - 1) ? TokenType::ParenthesisRight : TokenType::Comma;
+					auto& token = parser.peek();
 					auto arg_expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
-					auto arg_node = ast.make(AstNodeType::FunctionCallArg);
+					auto arg_node = ast.make(AstNodeType::FunctionCallArg, token);
 					ast[arg_node].child0 = arg_expr_node;
 
 					if (i == 0)
@@ -259,10 +261,16 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		}
 
 		prev_was_operator_or_nothing = next_is_operator;
+		prev_token = &next_token;
 	}
 
 	if (!parser.has_more())
-		log_error("Unexpected end of expression");
+	{
+		if (prev_token)
+			log_error(*prev_token, "Unexpected end of expression");
+		else
+			log_general_error("Unexpected end of expression");
+	}
 
 	auto& end_of_expr_token = parser.get();
 	if (end_of_expr_token.type != end_token)
@@ -315,7 +323,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& assign_token = parser.get();
 
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
-		size_t var_node = ast.make(AstNodeType::Variable);
+		size_t var_node = ast.make(AstNodeType::Variable, ident_token);
 
 		auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str);
 		if (!variable_location)
@@ -324,7 +332,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		ast[var_node].data_variable.variable_index = variable_location.value().second;
 		ast[var_node].data_variable.scope_index = variable_location.value().first;
 
-		size_t assign_node = ast.make(AstNodeType::Assignment);
+		size_t assign_node = ast.make(AstNodeType::Assignment, assign_token);
 		ast[assign_node].child0 = var_node;
 		ast[assign_node].child1 = expr_node;
 
@@ -342,7 +350,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		auto& assign_token = parser.get();
 
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
-		size_t var_node = ast.make(AstNodeType::Variable);
+		size_t var_node = ast.make(AstNodeType::Variable, ident_token);
 
 		auto& scope = symbol_table.scopes[scope_index];
 
@@ -353,7 +361,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		ast[var_node].data_variable.scope_index = scope_index;
 		ast[var_node].data_variable.variable_index = variable_index.value();
 
-		size_t assign_node = ast.make(AstNodeType::Assignment);
+		size_t assign_node = ast.make(AstNodeType::Assignment, assign_token);
 		ast[assign_node].child0 = var_node;
 		ast[assign_node].child1 = expr_node;
 
@@ -366,7 +374,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
 
-		size_t return_node = ast.make(AstNodeType::Return);
+		size_t return_node = ast.make(AstNodeType::Return, return_token);
 		ast[return_node].child0 = expr_node;
 
 		return return_node;
@@ -398,7 +406,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 				log_error(brace_token, "Empty body not allowed");
 		}
 
-		size_t if_node = ast.make(AstNodeType::If);
+		size_t if_node = ast.make(AstNodeType::If, if_token);
 		ast[if_node].child0 = expr_node;
 		ast[if_node].child1 = block_node.value();
 		ast[if_node].aux = else_block_node;
@@ -420,7 +428,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		if (!block_node.has_value())
 			log_error(brace_token, "Empty body not allowed");
 
-		size_t while_node = ast.make(AstNodeType::While);
+		size_t while_node = ast.make(AstNodeType::While, while_token);
 		ast[while_node].child0 = expr_node;
 		ast[while_node].child1 = block_node.value();
 
@@ -449,7 +457,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		if (!block_node.has_value())
 			log_error(brace_token, "Empty body not allowed");
 
-		size_t for_node = ast.make(AstNodeType::For);
+		size_t for_node = ast.make(AstNodeType::For, for_token);
 		ast[for_node].child0 = init_node;
 		ast[for_node].child1 = block_node.value();
 		ast[init_node].aux = cond_node;
@@ -460,9 +468,10 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	// Expression
 	else
 	{
+		auto& token = parser.peek();
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
 
-		size_t expr_statement_node = ast.make(AstNodeType::ExpressionStatement);
+		size_t expr_statement_node = ast.make(AstNodeType::ExpressionStatement, token);
 		ast[expr_statement_node].child0 = expr_node;
 
 		return expr_statement_node;
@@ -548,7 +557,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	func.intrinsic = false;
 	size_t func_index = symbol_table.functions.size() - 1;
 
-	size_t func_node = func.ast.make(AstNodeType::FunctionDefinition);
+	size_t func_node = func.ast.make(AstNodeType::FunctionDefinition, func_ident_token);
 	func.ast_node_root = func_node;
 
 	symbol_table.scopes.emplace_back();
@@ -560,7 +569,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 	while (true)
 	{
 		if (!parser.has_more())
-			log_error("Invalid function declaration");
+			log_error(func_ident_token, "Invalid function declaration");
 
 		if (parser.next_is(TokenType::Identifier, TokenType::Identifier))
 		{

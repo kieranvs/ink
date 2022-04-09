@@ -340,13 +340,13 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 		if (func.name == "main")
 		{
 			if (symbol_table.types[func.return_type_index].name != "int")
-				log_error("Main function defined with wrong return type");
+				log_error(func.ast[func.ast_node_root], "Main function defined with wrong return type");
 
 			main_defined = true;
 			break;
 		}
 	}
-	if (!main_defined) log_error("No main function defined");
+	if (!main_defined) log_general_error("No main function defined");
 
 	const char* entry_point_name;
 	const char* write_syscall;
