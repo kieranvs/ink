@@ -78,21 +78,29 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 		  || ast[index].type == AstNodeType::BinLogicalOr
 		)
 	{
+		size_t arg_size = 8;
+		auto& lhs = ast[ast[index].child0];
+		auto& rhs = ast[ast[index].child1];
+		if (lhs.type_annotation->special == false)
+			arg_size = symbol_table.types[lhs.type_annotation->type_index].data_size;
+		else if (rhs.type_annotation->special == false)
+			arg_size = symbol_table.types[rhs.type_annotation->type_index].data_size;
+
 		codegen_expr(ast, symbol_table, file, ast[index].child0);
 		fprintf(file, "    push %s\n", register_name(0, 8));
 		codegen_expr(ast, symbol_table, file, ast[index].child1);
 		fprintf(file, "    pop %s\n", register_name(2, 8));
 
 		if (ast[index].type == AstNodeType::BinOpAdd)
-			fprintf(file, "    add %s, %s\n", register_name(0, 8), register_name(2, 8));
+			fprintf(file, "    add %s, %s\n", register_name(0, arg_size), register_name(2, arg_size));
 		else if (ast[index].type == AstNodeType::BinOpSub)
-			fprintf(file, "    sub %s, %s\n", register_name(0, 8), register_name(2, 8));
+			fprintf(file, "    sub %s, %s\n", register_name(0, arg_size), register_name(2, arg_size));
 		else if (ast[index].type == AstNodeType::BinOpMul)
-			fprintf(file, "    mul %s\n", register_name(2, 8));
+			fprintf(file, "    mul %s\n", register_name(2, arg_size));
 		else if (ast[index].type == AstNodeType::BinOpDiv)
 		{
-			fprintf(file, "    mov %s, %d\n", register_name(3, 8), 0);
-			fprintf(file, "    div %s\n", register_name(2, 8));
+			fprintf(file, "    mov %s, %d\n", register_name(3, arg_size), 0);
+			fprintf(file, "    div %s\n", register_name(2, arg_size));
 		}
 		else if (ast[index].type == AstNodeType::BinLogicalAnd)
 			fprintf(file, "    and %s, %s\n", register_name(0, 1), register_name(2, 1));
@@ -100,7 +108,7 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 			fprintf(file, "    or %s, %s\n", register_name(0, 1), register_name(2, 1));
 		else
 		{
-			fprintf(file, "    cmp %s, %s\n", register_name(0, 8), register_name(2, 8));
+			fprintf(file, "    cmp %s, %s\n", register_name(0, arg_size), register_name(2, arg_size));
 			if (ast[index].type == AstNodeType::BinCompGreater)
 				fprintf(file, "    setg %s\n", register_name(0, 1));
 			else if (ast[index].type == AstNodeType::BinCompGreaterEqual)
