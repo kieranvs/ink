@@ -412,7 +412,7 @@ void type_check(SymbolTable& symbol_table)
 
 	for (auto& func : symbol_table.functions)
 	{
-		if (func.intrinsic) continue;
+		if (func.intrinsic || func.is_external) continue;
 		
 		type_check_ast(symbol_table, func.ast, func.ast_node_root, func.return_type_index);
 	}

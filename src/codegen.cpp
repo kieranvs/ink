@@ -374,6 +374,13 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	}
 
 	fprintf(file, "    global    %s\n", entry_point_name);
+	for (auto& func : symbol_table.functions)
+	{
+		if (func.is_external)
+		{
+			fprintf(file, "    extern    %s\n", func.name.c_str());
+		}
+	}
 	fprintf(file, "\n");
 	fprintf(file, "    section   .text\n");
 	fprintf(file, "\n");
@@ -386,7 +393,7 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	for (size_t i = 0; i < symbol_table.functions.size(); i++)
 	{
 		auto& func = symbol_table.functions[i];
-		if (!func.intrinsic)
+		if (!func.intrinsic && !func.is_external)
 			codegen_function(i, symbol_table, file);
 	}
 

@@ -252,6 +252,17 @@ size_t SymbolTable::find_add_string(const std::string& str)
 	return constant_strings.size() - 1;
 }
 
+void SymbolTable::add_linker_path(const std::string& path)
+{
+	for (auto& linker_path : linker_paths)
+	{
+		if (linker_path == path)
+			return;
+	}
+
+	linker_paths.emplace_back(path);
+}
+
 size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)
 {
 	if (symbol_table.types[base_type].add_ptr_type.has_value())

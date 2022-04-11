@@ -542,9 +542,12 @@ uint32_t assign_stack_offsets(SymbolTable& symbol_table, uint32_t base_offset, s
 	return biggest_child_size + scope_size;
 }
 
-void parse_function(Parser& parser, SymbolTable& symbol_table)
+void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 {
+	if (is_external)
+		parser.get_if(TokenType::KeywordExternal, "Invalid function declaration");
 	parser.get_if(TokenType::KeywordFunctionDecl, "Invalid function declaration");
+
 	auto& func_ident_token = parser.get_if(TokenType::Identifier, "Expected function name");
 	parser.get_if(TokenType::ParenthesisLeft, "Expected (");
 
@@ -613,15 +616,23 @@ void parse_function(Parser& parser, SymbolTable& symbol_table)
 		log_error(return_type_token, "Unknown type");
 	func.return_type_index = return_type_index.value();
 
-	parser.get_if(TokenType::BraceLeft, "Expected {");
+	if (!is_external)
+	{
+		parser.get_if(TokenType::BraceLeft, "Expected {");
 
-	func.ast[func_node].next = parse_block(parser, func.ast, symbol_table, scope, false);
+		func.ast[func_node].next = parse_block(parser, func.ast, symbol_table, scope, false);
 
-	auto stack_size = assign_stack_offsets(symbol_table, 0, scope);
-	if (stack_size % 16 != 0)
-		stack_size = ((stack_size / 16) + 1) * 16;
+		auto stack_size = assign_stack_offsets(symbol_table, 0, scope);
+		if (stack_size % 16 != 0)
+			stack_size = ((stack_size / 16) + 1) * 16;
+		func.ast[func_node].data_function_definition.stack_size = stack_size;
+	}
+	else
+	{
+		func.ast[func_node].data_function_definition.stack_size = 0;
+		func.is_external = true;
+	}
 
-	func.ast[func_node].data_function_definition.stack_size = stack_size;
 	func.ast[func_node].data_function_definition.function_index = func_index;
 }
 
@@ -630,7 +641,16 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 	while (parser.has_more())
 	{
 		if (parser.next_is(TokenType::KeywordFunctionDecl))
-			parse_function(parser, symbol_table);
+			parse_function(parser, symbol_table, false);
+		else if (parser.next_is(TokenType::KeywordExternal))
+			parse_function(parser, symbol_table, true);
+		else if (parser.next_is(TokenType::DirectiveLink))
+		{
+			auto& link_token = parser.get();
+			auto& path_token = parser.get_if(TokenType::LiteralString, "Expected linker path");
+
+			symbol_table.add_linker_path(path_token.data_str);
+		}
 		else
 			log_error(parser.peek(), "Unexpected token at top level");
 	}

@@ -11,6 +11,8 @@ enum class TokenType
 	KeywordElse,
 	KeywordWhile,
 	KeywordFor,
+	KeywordExternal,
+	DirectiveLink,
 	ParenthesisLeft,
 	ParenthesisRight,
 	BraceLeft,

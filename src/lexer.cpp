@@ -168,6 +168,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.type = TokenType::KeywordWhile;
 			else if (identifier_string == "for")
 				new_token.type = TokenType::KeywordFor;
+			else if (identifier_string == "external")
+				new_token.type = TokenType::KeywordExternal;
 			else if (identifier_string == "true")
 			{
 				new_token.type = TokenType::LiteralBool;
@@ -183,6 +185,15 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.type = TokenType::Identifier;
 				new_token.data_str = identifier_string;
 			}
+		}
+		else if (lexer.get_if('#'))
+		{
+			auto identifier_string = lexer.get_while(valid_ident_char);
+
+			if (identifier_string == "link")
+				new_token.type = TokenType::DirectiveLink;
+			else
+				log_error(new_token, "Unrecognised directive");
 		}
 		else if (lexer.get_if("&&"))
 			new_token.type = TokenType::LogicalAnd;

@@ -298,11 +298,36 @@ int main(int argc, char** argv)
 	// Run the linker
 	{
 		std::string linker_output;
-		char linker_command[512];
-		const char* extra_str = "";
+		const size_t buffer_size = 512;
+		char linker_command[buffer_size];
+		int bytes_written = 0;
+
+		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, "ld");
+		if (bytes_written >= buffer_size)
+			internal_error("Linker command buffer length overflow");
+
 		if (get_platform() == Platform::MacOS)
-			extra_str = "-static ";
-		snprintf(linker_command, 512, "ld %s-o %s %s", extra_str, options.output_binary.value().c_str(), obj_file_name.c_str());
+		{
+			bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " -static");
+			if (bytes_written >= buffer_size)
+				internal_error("Linker command buffer length overflow");
+		}
+
+		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " -o %s", options.output_binary.value().c_str());
+		if (bytes_written >= buffer_size)
+			internal_error("Linker command buffer length overflow");
+
+		for (auto& link_path : symbol_table.linker_paths)
+		{
+			bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", link_path.c_str());
+			if (bytes_written >= buffer_size)
+				internal_error("Linker command buffer length overflow");
+		}
+
+		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", obj_file_name.c_str());
+		if (bytes_written >= buffer_size)
+			internal_error("Linker command buffer length overflow");
+
 		int linker_error = exec_process(linker_command, linker_output);
 		if (linker_error != 0)
 		{

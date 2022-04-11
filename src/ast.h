@@ -159,6 +159,7 @@ struct Function
 	bool intrinsic;
 	size_t return_type_index;
 	size_t next_label = 0;
+	bool is_external = false;
 };
 
 struct ConstantString
@@ -174,11 +175,13 @@ struct SymbolTable
 	std::vector<Scope> scopes;
 	std::vector<Type> types;
 	std::vector<ConstantString> constant_strings;
+	std::vector<std::string> linker_paths;
 
 	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
 	size_t find_add_string(const std::string& str);
+	void add_linker_path(const std::string& path);
 };
 
 void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);
