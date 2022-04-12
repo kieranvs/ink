@@ -614,11 +614,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 	if (parser.next_is(TokenType::Colon))
 	{
 		parser.get();
-		auto& return_type_token = parser.get_if(TokenType::Identifier, "Expected return type");
-		auto return_type_index = symbol_table.find_type(return_type_token.data_str);
-		if (!return_type_index.has_value())
-			log_error(return_type_token, "Unknown type");
-		func.return_type_index = return_type_index.value();
+		func.return_type_index = parse_type(parser, symbol_table);
 	}
 
 	if (!is_external)
