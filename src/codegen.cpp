@@ -304,11 +304,11 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	}
 }
 
-void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* file)
+void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* file, const std::string& asm_label)
 {
 	auto& func = symbol_table.functions[function_index];
 
-	fprintf(file, "%s:\n", func.name.c_str());
+	fprintf(file, "%s:\n", asm_label.c_str());
 
 	auto& ast = func.ast;
 	auto index = func.ast_node_root;
@@ -339,7 +339,7 @@ void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* fi
 	fprintf(file, "\n");
 }
 
-void codegen(SymbolTable& symbol_table, FILE* file)
+void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 {
 	// Check that the main function is defined
 	bool main_defined = false;
@@ -357,6 +357,7 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 	if (!main_defined) log_general_error("No main function defined");
 
 	const char* entry_point_name;
+	const char* libc_entry_point_name = "_main";
 	const char* write_syscall;
 	const char* exit_syscall;
 
@@ -373,7 +374,11 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 		exit_syscall = "0x2000001";
 	}
 
-	fprintf(file, "    global    %s\n", entry_point_name);
+	if (!is_libc_mode)
+		fprintf(file, "    global    %s\n", entry_point_name);
+	else
+		fprintf(file, "    global    %s\n", libc_entry_point_name);
+
 	for (auto& func : symbol_table.functions)
 	{
 		if (func.is_external)
@@ -381,28 +386,40 @@ void codegen(SymbolTable& symbol_table, FILE* file)
 			fprintf(file, "    extern    %s\n", func.name.c_str());
 		}
 	}
+
 	fprintf(file, "\n");
 	fprintf(file, "    section   .text\n");
 	fprintf(file, "\n");
-	fprintf(file, "%s:\n", entry_point_name);
-	fprintf(file, "    call main\n");
-	fprintf(file, "    call exit\n");
-	fprintf(file, "\n");
+	if (!is_libc_mode)
+	{
+		fprintf(file, "%s:\n", entry_point_name);
+		fprintf(file, "    call main\n");
+		fprintf(file, "    call exit\n");
+		fprintf(file, "\n");
+	}
 
 	fprintf(file, "; user code\n");
 	for (size_t i = 0; i < symbol_table.functions.size(); i++)
 	{
 		auto& func = symbol_table.functions[i];
 		if (!func.intrinsic && !func.is_external)
-			codegen_function(i, symbol_table, file);
+		{
+			if (is_libc_mode && func.name == "main")
+				codegen_function(i, symbol_table, file, libc_entry_point_name);
+			else
+				codegen_function(i, symbol_table, file, func.name);
+		}
 	}
 
 	fprintf(file, "; intrinsics\n");
-	fprintf(file, "exit:\n");
-	fprintf(file, "    mov rax, %s\n", exit_syscall);
-	fprintf(file, "    xor rdi, rdi\n");
-	fprintf(file, "    syscall\n");
-	fprintf(file, "\n");
+	if (!is_libc_mode)
+	{
+		fprintf(file, "exit:\n");
+		fprintf(file, "    mov rax, %s\n", exit_syscall);
+		fprintf(file, "    xor rdi, rdi\n");
+		fprintf(file, "    syscall\n");
+		fprintf(file, "\n");
+	}
 	fprintf(file, "print_uint32:\n");
 	fprintf(file, "    mov eax, edi\n");
 	fprintf(file, "    mov ecx, 10\n");

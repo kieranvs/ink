@@ -267,7 +267,17 @@ int main(int argc, char** argv)
 		internal_error("IO failure");
 	}
 
-	codegen(symbol_table, asm_file);
+	bool is_libc_mode = false;
+	for (auto& link_path : symbol_table.linker_paths)
+	{
+		if (link_path == "libc")
+		{
+			is_libc_mode = true;
+			break;
+		}
+	}
+
+	codegen(symbol_table, asm_file, is_libc_mode);
 
 	fclose(asm_file);
 
@@ -302,11 +312,11 @@ int main(int argc, char** argv)
 		char linker_command[buffer_size];
 		int bytes_written = 0;
 
-		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, "ld");
+		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, is_libc_mode ? "gcc" : "ld");
 		if (bytes_written >= buffer_size)
 			internal_error("Linker command buffer length overflow");
 
-		if (get_platform() == Platform::MacOS)
+		if (get_platform() == Platform::MacOS && !is_libc_mode)
 		{
 			bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " -static");
 			if (bytes_written >= buffer_size)
@@ -319,6 +329,8 @@ int main(int argc, char** argv)
 
 		for (auto& link_path : symbol_table.linker_paths)
 		{
+			if (link_path == "libc") continue;
+
 			bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", link_path.c_str());
 			if (bytes_written >= buffer_size)
 				internal_error("Linker command buffer length overflow");
