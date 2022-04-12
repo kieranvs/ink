@@ -68,7 +68,8 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	else if (ast[index].type == AstNodeType::Return)
 	{
 		fprintf(output, "return\n");
-		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+		if (ast[index].aux.has_value())
+			dump_ast(output, symbol_table, ast, ast[index].aux.value(), indent + 1);
 	}
 	else if (ast[index].type == AstNodeType::ExpressionStatement)
 	{

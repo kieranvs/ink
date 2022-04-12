@@ -84,7 +84,7 @@ bool is_number_type(TypeAnnotation& ta)
 		return ta.type_index == intrinsic_type_index_int || ta.type_index == intrinsic_type_index_char;
 }
 
-void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, size_t return_type_index)
+void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::optional<size_t> return_type_index)
 {
 	if (ast[index].type == AstNodeType::LiteralInt)
 	{
@@ -234,15 +234,26 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, size_t re
 	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
-		type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
-		auto& expr_ta = ast[ast[index].child0].type_annotation;
+		if (return_type_index.has_value())
+		{
+			if (!ast[index].aux.has_value())
+				log_error(ast[index], "Missing function return value");
 
-		TypeAnnotation return_ta;
-		return_ta.type_index = return_type_index;
-		return_ta.special = false;
+			type_check_ast(symbol_table, ast, ast[index].aux.value(), return_type_index);
+			auto& expr_ta = ast[ast[index].aux.value()].type_annotation;
 
-		if (!expr_ta.has_value() || !can_assign(return_ta, expr_ta.value()))
-			log_error(ast[ast[index].child0], "Mismatch with function return type");
+			TypeAnnotation return_ta;
+			return_ta.type_index = return_type_index.value();
+			return_ta.special = false;
+
+			if (!expr_ta.has_value() || !can_assign(return_ta, expr_ta.value()))
+				log_error(ast[ast[index].aux.value()], "Mismatch with function return type");
+		}
+		else
+		{
+			if (ast[index].aux.has_value())
+				log_error(ast[ast[index].aux.value()], "Function doesn't return a value");
+		}
 
 		return;
 	}
@@ -286,10 +297,13 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, size_t re
 			}
 		}
 		
-		TypeAnnotation ta;
-		ta.type_index = func.return_type_index;
-		ta.special = false;
-		ast[index].type_annotation = ta;
+		if (func.return_type_index.has_value())
+		{
+			TypeAnnotation ta;
+			ta.type_index = func.return_type_index.value();
+			ta.special = false;
+			ast[index].type_annotation = ta;
+		}
 		return;
 	}
 	else if (ast[index].type == AstNodeType::FunctionCallArg)

@@ -372,10 +372,16 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	{
 		auto& return_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
-
 		size_t return_node = ast.make(AstNodeType::Return, return_token);
-		ast[return_node].child0 = expr_node;
+		if (!parser.next_is(TokenType::StatementEnd))
+		{
+			auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
+			ast[return_node].aux = expr_node;
+		}
+		else
+		{
+			parser.get();
+		}
 
 		return return_node;
 	}
@@ -605,12 +611,15 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 		}
 	}
 
-	parser.get_if(TokenType::Colon, "Missing return type declaration, expected :");
-	auto& return_type_token = parser.get_if(TokenType::Identifier, "Expected return type");
-	auto return_type_index = symbol_table.find_type(return_type_token.data_str);
-	if (!return_type_index.has_value())
-		log_error(return_type_token, "Unknown type");
-	func.return_type_index = return_type_index.value();
+	if (parser.next_is(TokenType::Colon))
+	{
+		parser.get();
+		auto& return_type_token = parser.get_if(TokenType::Identifier, "Expected return type");
+		auto return_type_index = symbol_table.find_type(return_type_token.data_str);
+		if (!return_type_index.has_value())
+			log_error(return_type_token, "Unknown type");
+		func.return_type_index = return_type_index.value();
+	}
 
 	if (!is_external)
 	{

@@ -200,7 +200,9 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
-		codegen_expr(ast, symbol_table, file, ast[index].child0);
+		if (ast[index].aux.has_value())
+			codegen_expr(ast, symbol_table, file, ast[index].aux.value());
+
 		fprintf(file, "    leave\n");
 		fprintf(file, "    ret\n");
 	}
@@ -347,7 +349,10 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	{
 		if (func.name == "main")
 		{
-			if (symbol_table.types[func.return_type_index].name != "int")
+			if (!func.return_type_index.has_value())
+				log_error(func.ast[func.ast_node_root], "Main function missing return type");
+
+			if (symbol_table.types[func.return_type_index.value()].name != "int")
 				log_error(func.ast[func.ast_node_root], "Main function defined with wrong return type");
 
 			main_defined = true;
