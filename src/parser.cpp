@@ -574,17 +574,13 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 		if (!parser.has_more())
 			log_error(func_ident_token, "Invalid function declaration");
 
-		if (parser.next_is(TokenType::Identifier, TokenType::Identifier))
+		if (next_matches_type(parser, symbol_table))
 		{
-			auto& type_token = parser.get();
+			auto type_index = parse_type(parser, symbol_table);
 			auto& ident_token = parser.get();
 
 			// Create variable for the parameter
-			auto type_index = symbol_table.find_type(type_token.data_str);
-			if (!type_index.has_value())
-				log_error(type_token, "Unknown type");
-
-			auto variable_index = symbol_table.scopes[scope].make_variable(symbol_table, ident_token.data_str, type_index.value());
+			auto variable_index = symbol_table.scopes[scope].make_variable(symbol_table, ident_token.data_str, type_index);
 			if (!variable_index)
 				log_error(ident_token, "Duplicate parameter name");
 
