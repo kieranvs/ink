@@ -640,12 +640,12 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 			parse_function(parser, symbol_table, false);
 		else if (parser.next_is(TokenType::KeywordExternal))
 			parse_function(parser, symbol_table, true);
-		else if (parser.next_is(TokenType::DirectiveLink))
+		else if (parser.next_is(TokenType::DirectiveLink) || parser.next_is(TokenType::DirectiveLinkFramework))
 		{
 			auto& link_token = parser.get();
 			auto& path_token = parser.get_if(TokenType::LiteralString, "Expected linker path");
 
-			symbol_table.add_linker_path(path_token.data_str);
+			symbol_table.add_linker_path(path_token.data_str, link_token.type == TokenType::DirectiveLinkFramework);
 		}
 		else
 			log_error(parser.peek(), "Unexpected token at top level");

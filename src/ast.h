@@ -169,19 +169,27 @@ struct ConstantString
 	std::string str;
 };
 
+struct LinkerPath
+{
+	LinkerPath(const std::string& p, bool is_framework) : path(p), is_macos_framework(is_framework) {}
+
+	std::string path;
+	bool is_macos_framework;
+};
+
 struct SymbolTable
 {
 	std::vector<Function> functions;
 	std::vector<Scope> scopes;
 	std::vector<Type> types;
 	std::vector<ConstantString> constant_strings;
-	std::vector<std::string> linker_paths;
+	std::vector<LinkerPath> linker_paths;
 
 	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
 	size_t find_add_string(const std::string& str);
-	void add_linker_path(const std::string& path);
+	void add_linker_path(const std::string& path, bool is_macos_framework);
 };
 
 void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);

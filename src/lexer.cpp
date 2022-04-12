@@ -192,6 +192,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 
 			if (identifier_string == "link")
 				new_token.type = TokenType::DirectiveLink;
+			else if (identifier_string == "link_framework")
+				new_token.type = TokenType::DirectiveLinkFramework;
 			else
 				log_error(new_token, "Unrecognised directive");
 		}

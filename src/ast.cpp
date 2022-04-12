@@ -252,15 +252,15 @@ size_t SymbolTable::find_add_string(const std::string& str)
 	return constant_strings.size() - 1;
 }
 
-void SymbolTable::add_linker_path(const std::string& path)
+void SymbolTable::add_linker_path(const std::string& path, bool is_macos_framework)
 {
 	for (auto& linker_path : linker_paths)
 	{
-		if (linker_path == path)
+		if (linker_path.path == path)
 			return;
 	}
 
-	linker_paths.emplace_back(path);
+	linker_paths.emplace_back(path, is_macos_framework);
 }
 
 size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)

@@ -13,6 +13,7 @@ enum class TokenType
 	KeywordFor,
 	KeywordExternal,
 	DirectiveLink,
+	DirectiveLinkFramework,
 	ParenthesisLeft,
 	ParenthesisRight,
 	BraceLeft,

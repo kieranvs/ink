@@ -270,7 +270,7 @@ int main(int argc, char** argv)
 	bool is_libc_mode = false;
 	for (auto& link_path : symbol_table.linker_paths)
 	{
-		if (link_path == "libc")
+		if (link_path.path == "libc")
 		{
 			is_libc_mode = true;
 			break;
@@ -329,9 +329,18 @@ int main(int argc, char** argv)
 
 		for (auto& link_path : symbol_table.linker_paths)
 		{
-			if (link_path == "libc") continue;
+			if (link_path.path == "libc") continue;
 
-			bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", link_path.c_str());
+			if (link_path.is_macos_framework)
+			{
+				if (get_platform() != Platform::MacOS) continue;
+
+				bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " -framework %s", link_path.path.c_str());
+			}
+			else
+			{
+				bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", link_path.path.c_str());
+			}
 			if (bytes_written >= buffer_size)
 				internal_error("Linker command buffer length overflow");
 		}
