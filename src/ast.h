@@ -37,6 +37,7 @@ enum class AstNodeType
 	BinLogicalOr,
 	Variable,
 	Assignment,
+	ZeroInitialise,
 	Return,
 	ExpressionStatement,
 	FunctionDefinition,

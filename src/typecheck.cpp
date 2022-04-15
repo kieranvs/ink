@@ -232,6 +232,15 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 
 		return;
 	}
+	else if (ast[index].type == AstNodeType::ZeroInitialise)
+	{
+		type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
+
+		if (ast[index].next.has_value())
+			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
+
+		return;
+	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
 		if (return_type_index.has_value())

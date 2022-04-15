@@ -343,13 +343,29 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	{
 		auto type_index = parse_type(parser, symbol_table);
 
-		if (!parser.next_is(TokenType::Identifier, TokenType::Assign))
-			log_error(parser.peek(), "Expected variable declaration");
+		if (!parser.next_is(TokenType::Identifier))
+			log_error(parser.peek(), "Expected identifier");
 
 		auto& ident_token = parser.get();
-		auto& assign_token = parser.get();
 
-		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
+		// We need to parse the expression before creating the new variable to avoid variable use in defining expression
+		size_t expr_node;
+		size_t assign_node;
+		bool assignment = false;
+		if (parser.next_is(TokenType::Assign))
+		{
+			assignment = true;
+			auto& assign_token = parser.get();
+			assign_node = ast.make(AstNodeType::Assignment, assign_token);
+			expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
+		}
+		else if (parser.next_is(TokenType::StatementEnd))
+		{
+			parser.get(); // statement end
+		}
+		else
+			log_error(parser.peek(), "Expected variable declaration");
+
 		size_t var_node = ast.make(AstNodeType::Variable, ident_token);
 
 		auto& scope = symbol_table.scopes[scope_index];
@@ -361,11 +377,20 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		ast[var_node].data_variable.scope_index = scope_index;
 		ast[var_node].data_variable.variable_index = variable_index.value();
 
-		size_t assign_node = ast.make(AstNodeType::Assignment, assign_token);
-		ast[assign_node].child0 = var_node;
-		ast[assign_node].child1 = expr_node;
+		if (assignment)
+		{
+			ast[assign_node].child0 = var_node;
+			ast[assign_node].child1 = expr_node;
 
-		return assign_node;
+			return assign_node;
+		}
+		else
+		{
+			size_t init_node = ast.make(AstNodeType::ZeroInitialise, ident_token);
+			ast[init_node].child0 = var_node;
+
+			return init_node;
+		}
 	}
 	// Return
 	else if (parser.next_is(TokenType::KeywordReturn))

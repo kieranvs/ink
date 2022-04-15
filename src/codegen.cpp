@@ -191,6 +191,32 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		if (ast[index].next.has_value())
 			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
 	}
+	else if (ast[index].type == AstNodeType::ZeroInitialise)
+	{
+		auto variable_node = ast[index].child0;
+		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
+		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
+		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = type.data_size;
+
+		size_t bytes_to_zero = type.data_size;
+		uint32_t addr_to_zero = variable.stack_offset;
+		fprintf(file, "    mov %s, 0\n", register_name(0, 8));
+		while (bytes_to_zero != 0)
+		{
+			int bytes_this_instruction = 1;
+			if (bytes_to_zero >= 8) bytes_this_instruction = 8;
+			else if (bytes_to_zero >= 4) bytes_this_instruction = 4;
+			else if (bytes_to_zero >= 2) bytes_this_instruction = 2;
+
+			fprintf(file, "    mov [rbp - %d], %s\n", addr_to_zero, register_name(0, bytes_this_instruction));
+			addr_to_zero -= bytes_this_instruction;
+			bytes_to_zero -= bytes_this_instruction;
+		}
+
+		if (ast[index].next.has_value())
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+	}
 	else if (ast[index].type == AstNodeType::ExpressionStatement)
 	{
 		codegen_expr(ast, symbol_table, file, ast[index].child0);
