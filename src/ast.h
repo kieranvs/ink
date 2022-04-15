@@ -128,15 +128,26 @@ struct Variable
 	size_t type_index;
 };
 
+enum TypeType
+{
+	Intrinsic,
+	Pointer,
+	Struct
+};
+
 struct Type
 {
 	std::string name;
-	bool intrinsic;
+	TypeType type;
+
 	size_t data_size;
 
-	bool is_pointer = false;
+	// Set for pointers
 	size_t remove_ptr_type;
 	std::optional<size_t> add_ptr_type;
+
+	// Set for structs
+	size_t scope;
 };
 
 struct SymbolTable;
@@ -192,6 +203,7 @@ struct SymbolTable
 	void add_linker_path(const std::string& path, bool is_macos_framework);
 };
 
-void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index = 0, int indent = 0);
+void dump_symbol_table(FILE* output, SymbolTable& symbol_table);
+
 size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type);
 size_t get_type_remove_pointer(SymbolTable& symbol_table, size_t ptr_type);

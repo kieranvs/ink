@@ -403,7 +403,7 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		if (expr_ta->special)
 			log_error(ast[index], "Dereference of literal");
 
-		if (!symbol_table.types[expr_ta->type_index].is_pointer)
+		if (symbol_table.types[expr_ta->type_index].type != TypeType::Pointer)
 			log_error(ast[index], "Dereference of non-pointer");
 
 		TypeAnnotation ta;

@@ -12,6 +12,7 @@ enum class TokenType
 	KeywordWhile,
 	KeywordFor,
 	KeywordExternal,
+	KeywordStruct,
 	DirectiveLink,
 	DirectiveLinkFramework,
 	ParenthesisLeft,

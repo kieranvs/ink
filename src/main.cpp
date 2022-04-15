@@ -122,29 +122,18 @@ int main(int argc, char** argv)
 
 	SymbolTable symbol_table;
 
+	auto add_intrinsic_type = [&](const char* name, size_t data_size)
 	{
 		symbol_table.types.emplace_back();
 		auto& type = symbol_table.types.back();
-		type.intrinsic = true;
-		type.name = "int";
-		type.data_size = 8;
-	}
+		type.type = TypeType::Intrinsic;
+		type.name = name;
+		type.data_size = data_size;
+	};
 
-	{
-		symbol_table.types.emplace_back();
-		auto& type = symbol_table.types.back();
-		type.intrinsic = true;
-		type.name = "bool";
-		type.data_size = 1;
-	}
-
-	{
-		symbol_table.types.emplace_back();
-		auto& type = symbol_table.types.back();
-		type.intrinsic = true;
-		type.name = "char";
-		type.data_size = 1;
-	}
+	add_intrinsic_type("int", 8);
+	add_intrinsic_type("bool", 1);
+	add_intrinsic_type("char", 1);
 
 	{
 		symbol_table.scopes.emplace_back();
@@ -223,26 +212,7 @@ int main(int argc, char** argv)
 		}
 
 		// Dump out symbol table for debugging:
-		for (auto& func : symbol_table.functions)
-		{
-			if (func.intrinsic) continue;
-
-			fprintf(debug_output_file, "Function %s\n", func.name.c_str());
-			fprintf(debug_output_file, "Parameters: ");
-			for (auto x : func.parameters)
-				fprintf(debug_output_file, "%zd", x);
-			fprintf(debug_output_file, "\n");
-
-			fprintf(debug_output_file, "Variables: ");
-			for (auto& variable : symbol_table.scopes[func.scope].local_variables)
-			{
-				fprintf(debug_output_file, "%s %d\n", variable.name.c_str(), variable.type_index);
-			}
-			fprintf(debug_output_file, "\n");
-
-			fprintf(debug_output_file, "Scope: %d\n", func.scope);
-			dump_ast(debug_output_file, symbol_table, func.ast);
-		}
+		dump_symbol_table(debug_output_file, symbol_table);
 
 		fclose(debug_output_file);
 	}

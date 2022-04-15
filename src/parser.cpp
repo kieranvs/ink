@@ -637,12 +637,66 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 	func.ast[func_node].data_function_definition.function_index = func_index;
 }
 
+void parse_struct(Parser& parser, SymbolTable& symbol_table)
+{
+	parser.get_if(TokenType::KeywordStruct, "Invalid struct declaration");
+
+	auto& struct_ident_token = parser.get_if(TokenType::Identifier, "Expected struct name");
+	parser.get_if(TokenType::BraceLeft, "Expected {");
+
+	if (symbol_table.find_type(struct_ident_token.data_str) != std::nullopt)
+		log_error(struct_ident_token, "Redefined type");
+
+	symbol_table.types.emplace_back();
+	auto type_index = symbol_table.types.size() - 1;
+	symbol_table.scopes.emplace_back();
+	auto scope_index = symbol_table.scopes.size() - 1;
+
+	{
+		auto& struct_type = symbol_table.types.back();
+		struct_type.name = struct_ident_token.data_str;
+		struct_type.type = TypeType::Struct;
+		struct_type.scope = scope_index;
+	}
+
+	while (true)
+	{
+		if (!parser.has_more())
+			log_error(struct_ident_token, "Invalid struct declaration");
+
+		if (next_matches_type(parser, symbol_table))
+		{
+			auto field_type_index = parse_type(parser, symbol_table);
+			auto& ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
+
+			parser.get_if(TokenType::StatementEnd, "Expected ;");
+
+			auto variable_index = symbol_table.scopes[scope_index].make_variable(symbol_table, ident_token.data_str, field_type_index);
+			if (!variable_index)
+				log_error(ident_token, "Duplicate struct field");
+		}
+		else if (parser.next_is(TokenType::BraceRight))
+		{
+			parser.get();
+			break;
+		}
+		else
+		{
+			log_error(parser.peek(), "Unexpected token in struct declaration");
+		}
+	}
+
+	symbol_table.types[type_index].data_size = assign_stack_offsets(symbol_table, 0, scope_index);
+}
+
 void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 {
 	while (parser.has_more())
 	{
 		if (parser.next_is(TokenType::KeywordFunctionDecl))
 			parse_function(parser, symbol_table, false);
+		else if (parser.next_is(TokenType::KeywordStruct))
+			parse_struct(parser, symbol_table);
 		else if (parser.next_is(TokenType::KeywordExternal))
 			parse_function(parser, symbol_table, true);
 		else if (parser.next_is(TokenType::DirectiveLink) || parser.next_is(TokenType::DirectiveLinkFramework))

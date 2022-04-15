@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 
-void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, int indent)
+void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, int indent = 0)
 {
 	for (int i = 0; i < indent; i++)
 		fprintf(output, "  ");
@@ -15,6 +15,13 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		fprintf(output, "%d\n", ast[index].data_literal_int.value);
 	else if (ast[index].type == AstNodeType::LiteralBool)
 		fprintf(output, "%s\n", ast[index].data_literal_bool.value ? "true" : "false");
+	else if (ast[index].type == AstNodeType::LiteralChar)
+		fprintf(output, "\'%c\'\n", ast[index].data_literal_int.value);
+	else if (ast[index].type == AstNodeType::LiteralString)
+	{
+		auto& str = symbol_table.constant_strings[ast[index].data_literal_string.constant_string_index].str;
+		fprintf(output, "\"%s\"\n", str.c_str());
+	}
 	else if (ast[index].type == AstNodeType::Dereference
 		|| ast[index].type == AstNodeType::AddressOf)
 	{
@@ -55,7 +62,8 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	}
 	else if (ast[index].type == AstNodeType::Variable)
 	{
-		fprintf(output, "Variable %d\n", ast[index].data_variable.variable_index);
+		auto& variable = symbol_table.scopes[ast[index].data_variable.scope_index].local_variables[ast[index].data_variable.variable_index];
+		fprintf(output, "Variable %s\n", variable.name.c_str());
 	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
@@ -86,11 +94,11 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
-		fprintf(output, "Function call %d\n", ast[index].data_function_call.function_index);
-
 		auto func_index = ast[index].data_function_call.function_index;
 		auto& func = symbol_table.functions[func_index];
 		auto& func_scope = symbol_table.scopes[func.scope];
+
+		fprintf(output, "Function call %s\n", func.name.c_str());
 
 		if (func.parameters.size() != 0)
 		{
@@ -177,8 +185,102 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	}
 	else
 	{
+		printf("type=%d\n", ast[index].type);
 		internal_error("Unhandled AST node type in dump_ast");
 	}
+}
+
+void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_index)
+{
+	auto& t = symbol_table.types[type_index];
+
+	if (t.type == TypeType::Intrinsic || t.type == TypeType::Struct)
+		fprintf(output, "%s", t.name.c_str());
+	else if (t.type == TypeType::Pointer)
+	{
+		pretty_print_type(output, symbol_table, t.remove_ptr_type);
+		fprintf(output, "*");
+	}
+	else
+		internal_error("Unhandled type type in pretty_print_type\n");
+}
+
+void dump_scope(FILE* output, SymbolTable& symbol_table, size_t index, int indent = 0)
+{
+	for (auto& variable : symbol_table.scopes[index].local_variables)
+	{
+		for (int i = 0; i < indent; i++)
+			fprintf(output, "  ");
+		fprintf(output, "%s (type=", variable.name.c_str());
+		pretty_print_type(output, symbol_table, variable.type_index);
+		fprintf(output, ", stack_offset=%u, scope_offset=%u)\n", variable.stack_offset, variable.scope_offset);
+	}
+
+	for (size_t child = 0; child < symbol_table.scopes.size(); child++)
+	{
+		if (symbol_table.scopes[child].parent.has_value() && symbol_table.scopes[child].parent.value() == index)
+		{
+			dump_scope(output, symbol_table, child, indent + 1);
+		}
+	}
+}
+
+void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
+{
+	fprintf(output, "------ Types ------\n");
+	for (int i = 0; i < symbol_table.types.size(); i++)
+	{
+		auto& t = symbol_table.types[i];
+
+		fprintf(output, "%d (", i);
+		pretty_print_type(output, symbol_table, i);
+		fprintf(output, ")\n");
+
+		if (t.type == TypeType::Intrinsic)
+			fprintf(output, "  Type: Intrinsic\n");
+		else if (t.type == TypeType::Pointer)
+			fprintf(output, "  Type: Pointer\n");
+		else if (t.type == TypeType::Struct)
+			fprintf(output, "  Type: Struct\n");
+		else
+			internal_error("Unhandled type type in dump_symbol_table\n");
+
+		fprintf(output, "  Size: %zd\n", t.data_size);
+
+		if (t.type == TypeType::Struct)
+		{
+			fprintf(output, "  Scope:\n");
+			dump_scope(output, symbol_table, t.scope, 2);
+		}
+	}
+
+	fprintf(output, "\n------ Functions ------\n");
+	for (auto& func : symbol_table.functions)
+	{
+		fprintf(output, "Function %s\n", func.name.c_str());
+		fprintf(output, "Parameters: ");
+		for (auto x : func.parameters)
+			fprintf(output, "%zd ", x);
+		fprintf(output, "\n");
+
+		fprintf(output, "Scope:\n");
+		dump_scope(output, symbol_table, func.scope, 1);
+
+		if (!func.intrinsic && !func.is_external)
+		{
+			fprintf(output, "Ast:\n");
+			dump_ast(output, symbol_table, func.ast, func.ast_node_root, 1);
+		}
+
+		fprintf(output, "\n");
+	}
+
+	fprintf(output, "------ Constant Strings ------\n");
+	for (auto& cs : symbol_table.constant_strings)
+	{
+		fprintf(output, "  \"%s\"", cs.str.c_str());
+	}
+
 }
 
 std::optional<std::pair<size_t, size_t>> SymbolTable::find_variable(size_t scope_index, const std::string& name)
@@ -272,9 +374,8 @@ size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)
 	{
 		symbol_table.types.emplace_back();
 		auto& type = symbol_table.types.back();
-		type.intrinsic = false;
+		type.type = TypeType::Pointer;
 		type.data_size = 8;
-		type.is_pointer = true;
 		type.remove_ptr_type = base_type;
 
 		auto new_type_index = symbol_table.types.size() - 1;
@@ -286,7 +387,7 @@ size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)
 
 size_t get_type_remove_pointer(SymbolTable& symbol_table, size_t ptr_type)
 {
-	if (!symbol_table.types[ptr_type].is_pointer)
+	if (symbol_table.types[ptr_type].type != TypeType::Pointer)
 		internal_error("Remove pointer from non-pointer type");
 	else
 		return symbol_table.types[ptr_type].remove_ptr_type;
