@@ -216,6 +216,18 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		ast[index].type_annotation = ta;
 		return;
 	}
+	else if (ast[index].type == AstNodeType::Selector)
+	{
+		auto& scope = symbol_table.scopes[ast[index].data_variable.scope_index];
+		auto variable_index = ast[index].data_variable.variable_index;
+		auto& type_index = scope.local_variables[variable_index].type_index;
+
+		TypeAnnotation ta;
+		ta.type_index = type_index;
+		ta.special = false;
+		ast[index].type_annotation = ta;
+		return;
+	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
 		type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);

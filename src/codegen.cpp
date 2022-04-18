@@ -44,6 +44,37 @@ int register_for_parameter(int i)
 		internal_error("Register overflow");
 }
 
+// Returns (stack_offset, data_size) for the data referred to by the given
+// variable or selector ast node.
+// stack_offset is the number of bytes below the stack pointer where the
+// first (low) byte of the struct sits.
+std::pair<uint32_t, size_t> compute_stack_offset_and_size(Ast& ast, SymbolTable& symbol_table, size_t node_index)
+{
+	auto& ast_node = ast[node_index];
+	if (ast_node.type != AstNodeType::Variable && ast_node.type != AstNodeType::Selector)
+		internal_error("compute_stack_offset_and_size invalid ast node");
+
+	auto& scope = symbol_table.scopes[ast_node.data_variable.scope_index];
+	auto& variable = scope.local_variables[ast_node.data_variable.variable_index];
+	auto& type = symbol_table.types[variable.type_index];
+	auto data_size = type.data_size;
+
+	if (ast_node.type == AstNodeType::Selector)
+	{
+		// Subtract the selector's offset from the parent, because
+		// we want to climb upwards in the stack - which is subtraction
+		// to this stack_offset. Add data_size to get to the low byte of
+		// the selector variable. Struct scopes are inverted compared
+		// to normal scopes which causes this confusion.
+		uint32_t stack_offset = compute_stack_offset_and_size(ast, symbol_table, ast_node.child0).first - variable.stack_offset + data_size;
+		return { stack_offset, data_size };
+	}
+	else
+	{
+		return { variable.stack_offset, data_size };
+	}
+}
+
 void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 {
 	if (ast[index].type == AstNodeType::None)
@@ -125,13 +156,10 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 				internal_error("Unhandled binary compare");
 		}
 	}
-	else if (ast[index].type == AstNodeType::Variable)
+	else if (ast[index].type == AstNodeType::Variable || ast[index].type == AstNodeType::Selector)
 	{
-		auto& scope = symbol_table.scopes[ast[index].data_variable.scope_index];
-		auto& variable = scope.local_variables[ast[index].data_variable.variable_index];
-		auto& type = symbol_table.types[variable.type_index];
-		auto data_size = type.data_size;
-		fprintf(file, "    mov %s, [rbp - %d]\n", register_name(0, data_size), variable.stack_offset);
+		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, index);
+		fprintf(file, "    mov %s, [rbp - %d]\n", register_name(0, data_size), stack_offset);
 	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
@@ -157,7 +185,7 @@ void codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index)
 	else if (ast[index].type == AstNodeType::AddressOf)
 	{
 		size_t variable_node_index = ast[index].child0;
-		if (ast[variable_node_index].type != AstNodeType::Variable)
+		if (ast[variable_node_index].type != AstNodeType::Variable && ast[variable_node_index].type != AstNodeType::Selector)
 			internal_error("AddressOf non-variable node");
 
 		auto& scope = symbol_table.scopes[ast[variable_node_index].data_variable.scope_index];
@@ -181,12 +209,8 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	{
 		codegen_expr(ast, symbol_table, file, ast[index].child1);
 
-		auto variable_node = ast[index].child0;
-		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
-		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
-		auto& type = symbol_table.types[variable.type_index];
-		auto data_size = type.data_size;
-		fprintf(file, "    mov [rbp - %d], %s\n", variable.stack_offset, register_name(0, data_size));
+		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, ast[index].child0);
+		fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(0, data_size));
 
 		if (ast[index].next.has_value())
 			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
@@ -194,6 +218,9 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	else if (ast[index].type == AstNodeType::ZeroInitialise)
 	{
 		auto variable_node = ast[index].child0;
+		if (ast[variable_node].type != AstNodeType::Variable)
+			log_error(ast[variable_node], "Zero initialise only supported for variable");
+
 		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
 		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
 		auto& type = symbol_table.types[variable.type_index];

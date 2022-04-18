@@ -36,6 +36,7 @@ enum class AstNodeType
 	BinLogicalAnd,
 	BinLogicalOr,
 	Variable,
+	Selector,
 	Assignment,
 	ZeroInitialise,
 	Return,

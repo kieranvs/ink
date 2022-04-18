@@ -40,7 +40,8 @@ enum class TokenType
 	StatementEnd,
 	Comma,
 	Colon,
-	Ampersand
+	Ampersand,
+	Period
 };
 
 struct SourceLocation

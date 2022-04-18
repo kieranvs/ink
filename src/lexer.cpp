@@ -241,6 +241,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 			new_token.type = TokenType::Colon;
 		else if (lexer.get_if('&'))
 			new_token.type = TokenType::Ampersand;
+		else if (lexer.get_if('.'))
+			new_token.type = TokenType::Period;
 		else
 			log_error(new_token, "Unrecognised token");
 

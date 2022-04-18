@@ -65,6 +65,13 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		auto& variable = symbol_table.scopes[ast[index].data_variable.scope_index].local_variables[ast[index].data_variable.variable_index];
 		fprintf(output, "Variable %s\n", variable.name.c_str());
 	}
+	else if (ast[index].type == AstNodeType::Selector)
+	{
+		auto& variable = symbol_table.scopes[ast[index].data_variable.scope_index].local_variables[ast[index].data_variable.variable_index];
+		fprintf(output, "Selector %s\n", variable.name.c_str());
+
+		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
+	}
 	else if (ast[index].type == AstNodeType::Assignment)
 	{
 		fprintf(output, "=\n");

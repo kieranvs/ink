@@ -42,6 +42,58 @@ const Token& Parser::get_if(TokenType type, const char* error_message)
 
 std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope, bool create_inner_scope);
 
+bool next_matches_variable(Parser& parser, SymbolTable& symbol_table, size_t scope_index)
+{
+	auto variable_location = symbol_table.find_variable(scope_index, parser.peek().data_str);
+	return variable_location.has_value();
+}
+
+size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t init_scope_index)
+{
+	auto& ident_token = parser.get();
+	auto variable_location = symbol_table.find_variable(init_scope_index, ident_token.data_str);
+
+	if (!variable_location.has_value())
+		log_error(ident_token, "Undefined variable");
+
+	auto variable_index = variable_location.value().second;
+	auto scope_index = variable_location.value().first;
+
+	auto node = ast.make(AstNodeType::Variable, ident_token);
+	ast[node].data_variable.variable_index = variable_index;
+	ast[node].data_variable.scope_index = scope_index;
+
+	while (parser.next_is(TokenType::Period))
+	{
+		parser.get(); // period
+
+		auto& parent_variable = symbol_table.scopes[scope_index].local_variables[variable_index];
+		auto& parent_variable_type = symbol_table.types[parent_variable.type_index];
+
+		if (parent_variable_type.type != TypeType::Struct)
+			log_error(ident_token, "Not a struct");
+
+		auto& ident_token = parser.get_if(TokenType::Identifier, "Expected struct field");
+
+		auto field_location = symbol_table.find_variable(parent_variable_type.scope, ident_token.data_str);
+
+		if (!field_location.has_value())
+			log_error(ident_token, "Couldn't find field");
+
+		variable_index = field_location.value().second;
+		scope_index = field_location.value().first;
+
+		auto selector_node = ast.make(AstNodeType::Selector, ident_token);
+		ast[selector_node].data_variable.variable_index = field_location.value().second;
+		ast[selector_node].data_variable.scope_index = field_location.value().first;
+		ast[selector_node].child0 = node;
+
+		node = selector_node;
+	}
+
+	return node;
+}
+
 size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token)
 {
 	std::stack<size_t> expr_nodes;
@@ -120,32 +172,36 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 	const Token* prev_token = nullptr;
 	while (parser.has_more() && !parser.next_is(end_token))
 	{
-		auto& next_token = parser.get();
+		prev_token = &parser.peek();
 		bool next_is_operator = true;
 
-		if (next_token.type == TokenType::LiteralInteger)
+		if (parser.next_is(TokenType::LiteralInteger))
 		{
+			auto& next_token = parser.get();
 			auto node = ast.make(AstNodeType::LiteralInt, next_token);
 			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
-		else if (next_token.type == TokenType::LiteralBool)
+		else if (parser.next_is(TokenType::LiteralBool))
 		{
+			auto& next_token = parser.get();
 			auto node = ast.make(AstNodeType::LiteralBool, next_token);
 			ast[node].data_literal_bool.value = next_token.data_bool;
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
-		else if (next_token.type == TokenType::LiteralChar)
+		else if (parser.next_is(TokenType::LiteralChar))
 		{
+			auto& next_token = parser.get();
 			auto node = ast.make(AstNodeType::LiteralChar, next_token);
 			ast[node].data_literal_int.value = next_token.data_int;
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
-		else if (next_token.type == TokenType::LiteralString)
+		else if (parser.next_is(TokenType::LiteralString))
 		{
+			auto& next_token = parser.get();
 			auto node = ast.make(AstNodeType::LiteralString, next_token);
 
 			auto string_index = symbol_table.find_add_string(next_token.data_str);
@@ -155,8 +211,9 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			next_is_operator = false;
 		}
 		// Unary operators
-		else if (prev_was_operator_or_nothing && next_token.type == TokenType::Asterisk)
+		else if (prev_was_operator_or_nothing && parser.next_is(TokenType::Asterisk))
 		{
+			auto& next_token = parser.get();
 			while (!operators.empty() && priority(operators.top()) > priority({ false, next_token })) // or they are the same and next_token is left assoc
 			{
 				apply_op();
@@ -166,20 +223,21 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 		}
 		// Binary operators
 		else if (!prev_was_operator_or_nothing && (
-				 next_token.type == TokenType::OperatorPlus
-			  || next_token.type == TokenType::OperatorMinus
-			  || next_token.type == TokenType::Asterisk
-			  || next_token.type == TokenType::OperatorDivide
-			  || next_token.type == TokenType::CompareGreater
-			  || next_token.type == TokenType::CompareGreaterEqual
-			  || next_token.type == TokenType::CompareLess
-			  || next_token.type == TokenType::CompareLessEqual
-			  || next_token.type == TokenType::CompareEqual
-			  || next_token.type == TokenType::CompareNotEqual
-			  || next_token.type == TokenType::LogicalAnd
-			  || next_token.type == TokenType::LogicalOr
+				 parser.next_is(TokenType::OperatorPlus)
+			  || parser.next_is(TokenType::OperatorMinus)
+			  || parser.next_is(TokenType::Asterisk)
+			  || parser.next_is(TokenType::OperatorDivide)
+			  || parser.next_is(TokenType::CompareGreater)
+			  || parser.next_is(TokenType::CompareGreaterEqual)
+			  || parser.next_is(TokenType::CompareLess)
+			  || parser.next_is(TokenType::CompareLessEqual)
+			  || parser.next_is(TokenType::CompareEqual)
+			  || parser.next_is(TokenType::CompareNotEqual)
+			  || parser.next_is(TokenType::LogicalAnd)
+			  || parser.next_is(TokenType::LogicalOr)
 			  ))
 		{
+			auto& next_token = parser.get();
 			while (!operators.empty() && priority(operators.top()) > priority({ true, next_token })) // or they are the same and next_token is left assoc
 			{
 				apply_op();
@@ -187,15 +245,13 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 
 			operators.push({ true, next_token });
 		}
-		else if (next_token.type == TokenType::Ampersand)
+		else if (parser.next_is(TokenType::Ampersand))
 		{
-			auto ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
+			auto& next_token = parser.get();
 
-			if (auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str))
+			if (next_matches_variable(parser, symbol_table, scope_index))
 			{
-				auto node = ast.make(AstNodeType::Variable, ident_token);
-				ast[node].data_variable.variable_index = variable_location.value().second;
-				ast[node].data_variable.scope_index = variable_location.value().first;
+				size_t node = parse_variable(parser, ast, symbol_table, scope_index);
 
 				auto address_of_node = ast.make(AstNodeType::AddressOf, next_token);
 				ast[address_of_node].child0 = node;
@@ -203,21 +259,20 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 				expr_nodes.push(address_of_node);
 			}
 			else
-				log_error(ident_token, "Can't take address of non-variable");
+				log_error(parser.peek(), "Can't take address of non-variable");
 
 			next_is_operator = false;
 		}
-		else if (next_token.type == TokenType::Identifier)
+		else if (parser.next_is(TokenType::Identifier))
 		{
-			if (auto variable_location = symbol_table.find_variable(scope_index, next_token.data_str))
+			if (next_matches_variable(parser, symbol_table, scope_index))
 			{
-				auto node = ast.make(AstNodeType::Variable, next_token);
-				ast[node].data_variable.variable_index = variable_location.value().second;
-				ast[node].data_variable.scope_index = variable_location.value().first;
+				size_t node = parse_variable(parser, ast, symbol_table, scope_index);
 				expr_nodes.push(node);
 			}
-			else if (auto function = symbol_table.find_function(next_token.data_str))
+			else if (auto function = symbol_table.find_function(parser.peek().data_str))
 			{
+				auto& next_token = parser.get();
 				auto& function_ref = symbol_table.functions[function.value()];
 
 				auto func_call_node = ast.make(AstNodeType::FunctionCall, next_token);
@@ -250,18 +305,17 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			}
 			else
 			{
-				log_error(next_token, "Undefined variable");
+				log_error(parser.peek(), "Undefined variable");
 			}
 
 			next_is_operator = false;
 		}
 		else
 		{
-			log_error(next_token, "Unexpected token in expression");
+			log_error(parser.peek(), "Unexpected token in expression");
 		}
 
-		prev_was_operator_or_nothing = next_is_operator;
-		prev_token = &next_token;
+		prev_was_operator_or_nothing = next_is_operator;;
 	}
 
 	if (!parser.has_more())
@@ -317,20 +371,12 @@ size_t parse_type(Parser& parser, SymbolTable& symbol_table)
 size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token = TokenType::StatementEnd)
 {
 	// Assignment to existing variable
-	if (parser.next_is(TokenType::Identifier, TokenType::Assign))
+	if (next_matches_variable(parser, symbol_table, scope_index))
 	{
-		auto& ident_token = parser.get();
+		size_t var_node = parse_variable(parser, ast, symbol_table, scope_index);
+
 		auto& assign_token = parser.get();
-
 		auto expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
-		size_t var_node = ast.make(AstNodeType::Variable, ident_token);
-
-		auto variable_location = symbol_table.find_variable(scope_index, ident_token.data_str);
-		if (!variable_location)
-			log_error(ident_token, "Undefined variable");
-
-		ast[var_node].data_variable.variable_index = variable_location.value().second;
-		ast[var_node].data_variable.scope_index = variable_location.value().first;
 
 		size_t assign_node = ast.make(AstNodeType::Assignment, assign_token);
 		ast[assign_node].child0 = var_node;
