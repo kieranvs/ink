@@ -50,14 +50,34 @@ int caller_saved_registers[] = { 0, 2, 3, 4, 5, 8, 9, 10, 11 };
 int callee_saved_registers[] = { 1, 12, 13, 14, 15 };
 
 uint8_t RegisterStatusFlag_InUse            = 1;
+uint8_t RegisterStatusFlag_ContainsVariable = 2;
 
 struct RegisterStatus
 {
 	uint8_t flags = 0;
 
+	// Set if the register stores a variable
+	uint32_t stack_offset;
+	uint8_t stack_size;
+
 	bool has_flag(uint8_t flag)
 	{
 		return (flags & flag) != 0;
+	}
+
+	void set_all_flags(uint8_t new_flags)
+	{
+		flags = new_flags;
+	}
+
+	void set_flag(uint8_t flag)
+	{
+		flags |= flag;
+	}
+
+	void unset_flag(uint8_t flag)
+	{
+		flags &= (~flag);
 	}
 };
 
@@ -66,7 +86,7 @@ struct RegisterState
 	RegisterState()
 	{
 		for (int i = 0; i < 16; i++)
-			register_status[i].flags = 0;
+			register_status[i].set_all_flags(0);
 	}
 
 	RegisterStatus register_status[16];
@@ -79,7 +99,7 @@ struct RegisterState
 			int r = caller_saved_registers[i];
 			if (!register_status[r].has_flag(RegisterStatusFlag_InUse))
 			{
-				register_status[r].flags = flags;
+				register_status[r].set_all_flags(flags);
 				return r;
 			}
 		}
@@ -92,7 +112,16 @@ struct RegisterState
 	{
 		for (int i = 0; i < 16; i++)
 		{
-			printf("  %s : %d\n", register_name(i, 8), register_status[i].flags);
+			auto& rs = register_status[i];
+
+			printf("  %s : ", register_name(i, 8));
+			if (rs.has_flag(RegisterStatusFlag_InUse)) printf("in_use ");
+			if (rs.has_flag(RegisterStatusFlag_ContainsVariable)) printf("contains_variable ");
+			if (rs.has_flag(RegisterStatusFlag_ContainsVariable))
+			{
+				printf("stack_offset=%d stack_size=%d ", rs.stack_offset, rs.stack_size);
+			}
+			printf("\n");
 		}
 	}
 };
@@ -259,13 +288,30 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 				internal_error("Unhandled binary compare");
 		}
 
-		registers.register_status[r1].flags = 0;
+		registers.register_status[r0].set_all_flags(RegisterStatusFlag_InUse);
+		if (r0 != r1) registers.register_status[r1].unset_flag(RegisterStatusFlag_InUse);
 		return r0;
 	}
 	else if (ast[index].type == AstNodeType::Variable || ast[index].type == AstNodeType::Selector)
 	{
 		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, index);
-		int r = registers.get_free_register(RegisterStatusFlag_InUse);
+
+		for (int r = 0; r < 16; r++)
+		{
+			auto& rs = registers.register_status[r];
+			if (rs.has_flag(RegisterStatusFlag_ContainsVariable))
+			{
+				if (rs.stack_offset == stack_offset && rs.stack_size == data_size)
+				{
+					rs.set_flag(RegisterStatusFlag_InUse);
+					return r;
+				}
+			}
+		}
+
+		int r = registers.get_free_register(RegisterStatusFlag_InUse | RegisterStatusFlag_ContainsVariable);
+		registers.register_status[r].stack_offset = stack_offset;
+		registers.register_status[r].stack_size = data_size;
 		fprintf(file, "    mov %s, [rbp - %d]\n", register_name(r, data_size), stack_offset);
 		return r;
 	}
@@ -275,16 +321,28 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		auto& func = symbol_table.functions[func_index];
 		auto& func_scope = symbol_table.scopes[func.scope];
 
+		// Save all the registers in use
+		for (int i = 0; i < 9; i++)
+		{
+			int r = caller_saved_registers[i];
+			if (registers.register_status[r].has_flag(RegisterStatusFlag_InUse))
+			{
+				fprintf(file, "    push %s\n", register_name(r, 8));
+			}
+		}
+
 		if (func.parameters.size() != 0)
 		{
 			auto current_arg_node = ast[index].child0;
 
+			RegisterState registers_temp = registers;
+
 			for (int i = 0; i < func.parameters.size(); i++)
 			{
-				int r = codegen_expr(ast, symbol_table, file, ast[current_arg_node].child0, registers);
+				int r = codegen_expr(ast, symbol_table, file, ast[current_arg_node].child0, registers_temp);
 				fprintf(file, "    mov %s, %s\n", register_name(register_for_parameter(i), 8), register_name(r, 8));
-				registers.register_status[r].flags = 0;
-				registers.register_status[register_for_parameter(i)].flags = RegisterStatusFlag_InUse;
+				registers_temp.register_status[r].unset_flag(RegisterStatusFlag_InUse);
+				registers_temp.register_status[register_for_parameter(i)].set_all_flags(RegisterStatusFlag_InUse);
 
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}
@@ -292,12 +350,30 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 
 		fprintf(file, "    call %s\n", func.name.c_str());
 
-		// Function call trashed everything
-		for (int i = 0; i < 9; i++)
-			registers.register_status[caller_saved_registers[i]].flags = 0;
-		registers.register_status[0].flags = RegisterStatusFlag_InUse;
+		// Move the result into a free register
+		int r = registers.get_free_register(RegisterStatusFlag_InUse);
+		if (r != 0)
+			fprintf(file, "    mov %s, %s\n", register_name(r, 8), register_name(0, 8));
 
-		return 0;
+		// Restore the registers
+		for (int i = 0; i < 9; i++)
+		{
+			// Iterate backwards
+			int r0 = caller_saved_registers[9 - 1 - i];
+			if (registers.register_status[r0].has_flag(RegisterStatusFlag_InUse) && r != r0)
+			{
+				fprintf(file, "    pop %s\n", register_name(r0, 8));
+			}
+		}
+
+		// Everything which wasn't saved is trashed
+		for (int i = 0; i < 16; i++)
+		{
+			if (!registers.register_status[i].has_flag(RegisterStatusFlag_InUse))
+				registers.register_status[i].set_all_flags(0);
+		}
+
+		return r;
 	}
 	else if (ast[index].type == AstNodeType::AddressOf)
 	{
@@ -315,6 +391,11 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 	{
 		int r = codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
 		fprintf(file, "    mov %s, [%s]\n", register_name(r, 8), register_name(r, 8));
+
+		// If we just dereferenced a pointer variable using the same register, it doesn't contain
+		// the pointer variable any more.
+		registers.register_status[r].unset_flag(RegisterStatusFlag_ContainsVariable);
+
 		return r;
 	}
 	else
@@ -323,18 +404,30 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 	}
 }
 
-void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, size_t function_index)
+void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, size_t function_index, RegisterState& registers)
 {
 	if (ast[index].type == AstNodeType::Assignment)
 	{
-		RegisterState registers;
 		int r = codegen_expr(ast, symbol_table, file, ast[index].child1, registers);
 
 		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, ast[index].child0);
 		fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(r, data_size));
 
+		for (int i = 0; i < 16; i++)
+		{
+			if (registers.register_status[i].has_flag(RegisterStatusFlag_ContainsVariable)
+				&& registers.register_status[i].stack_offset == stack_offset)
+			{
+				registers.register_status[i].unset_flag(RegisterStatusFlag_ContainsVariable);
+			}
+		}
+
+		registers.register_status[r].set_all_flags(RegisterStatusFlag_ContainsVariable);
+		registers.register_status[r].stack_offset = stack_offset;
+		registers.register_status[r].stack_size = data_size;
+
 		if (ast[index].next.has_value())
-			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 	}
 	else if (ast[index].type == AstNodeType::ZeroInitialise)
 	{
@@ -349,7 +442,11 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 
 		size_t bytes_to_zero = type.data_size;
 		uint32_t addr_to_zero = variable.stack_offset;
-		fprintf(file, "    mov %s, 0\n", register_name(0, 8));
+
+		// Get a temporary register - 0 flag because we are done with it immediately
+		int r = registers.get_free_register(0);
+		fprintf(file, "    mov %s, 0\n", register_name(r, 8));
+
 		while (bytes_to_zero != 0)
 		{
 			int bytes_this_instruction = 1;
@@ -357,29 +454,33 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 			else if (bytes_to_zero >= 4) bytes_this_instruction = 4;
 			else if (bytes_to_zero >= 2) bytes_this_instruction = 2;
 
-			fprintf(file, "    mov [rbp - %d], %s\n", addr_to_zero, register_name(0, bytes_this_instruction));
+			fprintf(file, "    mov [rbp - %d], %s\n", addr_to_zero, register_name(r, bytes_this_instruction));
 			addr_to_zero -= bytes_this_instruction;
 			bytes_to_zero -= bytes_this_instruction;
 		}
 
 		if (ast[index].next.has_value())
-			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 	}
 	else if (ast[index].type == AstNodeType::ExpressionStatement)
 	{
-		RegisterState registers;
-		codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
+		int r = codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
+		registers.register_status[r].unset_flag(RegisterStatusFlag_InUse);
 
 		if (ast[index].next.has_value())
-			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 	}
 	else if (ast[index].type == AstNodeType::Return)
 	{
 		if (ast[index].aux.has_value())
 		{
-			RegisterState registers;
 			int r = codegen_expr(ast, symbol_table, file, ast[index].aux.value(), registers);
-			if (r != 0) fprintf(file, "    mov %s, %s\n", register_name(0, 8), register_name(r, 8));
+
+			if (r != 0)
+			{
+				registers.register_status[r].unset_flag(RegisterStatusFlag_InUse);
+				fprintf(file, "    mov %s, %s\n", register_name(0, 8), register_name(r, 8));
+			}
 		}
 
 		fprintf(file, "    leave\n");
@@ -398,14 +499,14 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 			L1 = symbol_table.functions[function_index].next_label++;
 
 		// Evaluate the condition
-		RegisterState registers;
 		int r = codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
+		registers.register_status[r].unset_flag(RegisterStatusFlag_InUse);
 		fprintf(file, "    test %s, %s\n", register_name(r, 1), register_name(r, 1));
 
 		fprintf(file, "    jz .L%zd\n", L0);
 
 		// If branch code
-		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index);
+		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index, registers);
 		if (else_branch) // If there is an else branch, skip over it
 			fprintf(file, "    jmp .L%zd\n", L1);
 
@@ -415,14 +516,14 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		if (else_branch)
 		{
 			// Else branch code
-			codegen_statement(ast, symbol_table, file, ast[index].aux.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].aux.value(), function_index, registers);
 
 			// L1 is at the end of the else branch
 			fprintf(file, ".L%zd:\n", L1);
 		}
 
 		if (ast[index].next.has_value())
-			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 
 	}
 	else if (ast[index].type == AstNodeType::While)
@@ -433,20 +534,20 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		fprintf(file, ".L%zd:\n", start_label);
 
 		// Evaluate the condition
-		RegisterState registers;
 		int r = codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
+		registers.register_status[r].unset_flag(RegisterStatusFlag_InUse);
 		fprintf(file, "    test %s, %s\n", register_name(r, 1), register_name(r, 1));
 
 		fprintf(file, "    jz .L%zd\n", end_label);
 
 		// Body
-		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index);
+		codegen_statement(ast, symbol_table, file, ast[index].child1, function_index, registers);
 
 		fprintf(file, "    jmp .L%zd\n", start_label);
 		fprintf(file, ".L%zd:\n", end_label);
 
 		if (ast[index].next.has_value())
-			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 	}
 	else if (ast[index].type == AstNodeType::For)
 	{
@@ -459,28 +560,28 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		size_t end_label = symbol_table.functions[function_index].next_label++;
 
 		// Initialiser
-		codegen_statement(ast, symbol_table, file, init_node, function_index);
+		codegen_statement(ast, symbol_table, file, init_node, function_index, registers);
 
 		fprintf(file, ".L%zd:\n", start_label);
 
 		// Evaluate the condition
-		RegisterState registers;
 		int r = codegen_expr(ast, symbol_table, file, cond_node, registers);
+		registers.register_status[r].unset_flag(RegisterStatusFlag_InUse);
 		fprintf(file, "    test %s, %s\n", register_name(r, 1), register_name(r, 1));
 
 		fprintf(file, "    jz .L%zd\n", end_label);
 
 		// Body
-		codegen_statement(ast, symbol_table, file, body_node, function_index);
+		codegen_statement(ast, symbol_table, file, body_node, function_index, registers);
 
 		// Incrementer
-		codegen_statement(ast, symbol_table, file, incr_node, function_index);
+		codegen_statement(ast, symbol_table, file, incr_node, function_index, registers);
 
 		fprintf(file, "    jmp .L%zd\n", start_label);
 		fprintf(file, ".L%zd:\n", end_label);
 
 		if (ast[index].next.has_value())
-			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 	}
 	else
 	{
@@ -506,16 +607,20 @@ void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* fi
 	fprintf(file, "    mov rbp, rsp\n");
 	fprintf(file, "    sub rsp, %d\n", ast[index].data_function_definition.stack_size);
 
+	RegisterState registers;
 	for (int i = 0; i < func.parameters.size(); i++)
 	{
 		auto param_offset = func_scope.local_variables[func.parameters[i]].stack_offset;
 		auto var_type = func_scope.local_variables[func.parameters[i]].type_index;
 		auto data_size = symbol_table.types[var_type].data_size;
 		fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_name(register_for_parameter(i), data_size));
+		registers.register_status[register_for_parameter(i)].set_all_flags(RegisterStatusFlag_ContainsVariable);
+		registers.register_status[register_for_parameter(i)].stack_offset = param_offset;
+		registers.register_status[register_for_parameter(i)].stack_size = data_size;
 	}
 
 	if (ast[index].next.has_value())
-		codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index);
+		codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
 
 	fprintf(file, "    leave\n");
 	fprintf(file, "    ret\n");
