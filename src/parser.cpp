@@ -183,6 +183,17 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 			expr_nodes.push(node);
 			next_is_operator = false;
 		}
+		else if (parser.next_is(TokenType::LiteralFloat))
+		{
+			auto& next_token = parser.get();
+			auto node = ast.make(AstNodeType::LiteralFloat, next_token);
+
+			auto float_index = symbol_table.find_add_float(next_token.data_float);
+
+			ast[node].data_literal_float.constant_float_index = float_index;
+			expr_nodes.push(node);
+			next_is_operator = false;
+		}
 		else if (parser.next_is(TokenType::LiteralBool))
 		{
 			auto& next_token = parser.get();

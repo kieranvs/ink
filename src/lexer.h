@@ -20,6 +20,7 @@ enum class TokenType
 	BraceLeft,
 	BraceRight,
 	LiteralInteger,
+	LiteralFloat,
 	LiteralBool,
 	LiteralChar,
 	LiteralString,
@@ -60,6 +61,7 @@ struct Token
 	int data_int;
 	std::string data_str;
 	bool data_bool;
+	double data_float;
 };
 
 struct Lexer

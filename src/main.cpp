@@ -134,6 +134,7 @@ int main(int argc, char** argv)
 	add_intrinsic_type("int", 8);
 	add_intrinsic_type("bool", 1);
 	add_intrinsic_type("char", 1);
+	add_intrinsic_type("float", 8);
 
 	{
 		symbol_table.scopes.emplace_back();

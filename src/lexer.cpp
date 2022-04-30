@@ -128,9 +128,25 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 		{
 			auto literal_string = lexer.get_while([](char c) { return std::isdigit(c); });
 
-			int x = std::stoi(literal_string);
-			new_token.type = TokenType::LiteralInteger;
-			new_token.data_int = x;
+			// Float literal
+			if (lexer.peek() == '.')
+			{
+				literal_string += lexer.get(); // Period
+				auto next_string = lexer.get_while([](char c) { return std::isdigit(c); });
+				literal_string += next_string;
+
+				double x = std::stod(literal_string);
+				new_token.type = TokenType::LiteralFloat;
+				new_token.data_float = x;
+			}
+			// Integer literal
+			else
+			{
+				int x = std::stoi(literal_string);
+				new_token.type = TokenType::LiteralInteger;
+				new_token.data_int = x;
+			}
+
 		}
 		else if (lexer.get_if('\''))
 		{

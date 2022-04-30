@@ -20,6 +20,7 @@ enum class AstNodeType
 {
 	None,
 	LiteralInt,
+	LiteralFloat,
 	LiteralBool,
 	LiteralChar,
 	LiteralString,
@@ -68,6 +69,11 @@ struct AstNode
 		int value;
 	};
 
+	struct DataLiteralFloat
+	{
+		size_t constant_float_index;
+	};
+
 	struct DataLiteralBool
 	{
 		bool value;
@@ -98,6 +104,7 @@ struct AstNode
 	union
 	{
 		DataLiteralInt data_literal_int;
+		DataLiteralFloat data_literal_float;
 		DataLiteralBool data_literal_bool;
 		DataLiteralString data_literal_string;
 		DataVariable data_variable;
@@ -196,12 +203,14 @@ struct SymbolTable
 	std::vector<Scope> scopes;
 	std::vector<Type> types;
 	std::vector<ConstantString> constant_strings;
+	std::vector<double> constant_floats;
 	std::vector<LinkerPath> linker_paths;
 
 	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
 	size_t find_add_string(const std::string& str);
+	size_t find_add_float(double value);
 	void add_linker_path(const std::string& path, bool is_macos_framework);
 };
 

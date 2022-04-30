@@ -1,4 +1,5 @@
 #include "codegen.h"
+#include "typecheck.h"
 
 #include "utils.h"
 
@@ -24,12 +25,29 @@ const char* register_name_data[] =
 
 const char* register_name(int reg, int bytes)
 {
+	if (reg < 0 || reg >= 16) internal_error("Invalid register");
+
 	     if (bytes == 1) return register_name_data[reg * 4 + 0];
 	else if (bytes == 2) return register_name_data[reg * 4 + 1];
 	else if (bytes == 4) return register_name_data[reg * 4 + 2];
 	else if (bytes == 8) return register_name_data[reg * 4 + 3];
 	else
-		internal_error("Invalid register name request");
+		internal_error("Invalid register size");
+}
+
+const char* xmm_register_name_data[] =
+{
+	"xmm0", "xmm1", "xmm2", "xmm3",
+	"xmm4", "xmm5", "xmm6", "xmm7",
+	"xmm8", "xmm9", "xmm10", "xmm11",
+	"xmm12", "xmm13", "xmm14", "xmm15"
+};
+
+const char* xmm_register_name(int reg)
+{
+	if (reg < 16 || reg >= 32) internal_error("Invalid xmm register");
+
+	return xmm_register_name_data[reg - 16];
 }
 
 int register_for_parameter(int i)
@@ -85,11 +103,11 @@ struct RegisterState
 {
 	RegisterState()
 	{
-		for (int i = 0; i < 16; i++)
+		for (int i = 0; i < 32; i++)
 			register_status[i].set_all_flags(0);
 	}
 
-	RegisterStatus register_status[16];
+	RegisterStatus register_status[32];
 
 	int get_free_register(uint8_t flags)
 	{
@@ -108,13 +126,32 @@ struct RegisterState
 		return 0;
 	}
 
+	int get_free_xmm_register(uint8_t flags)
+	{
+		for (int i = 16; i < 32; i++)
+		{
+			if (!register_status[i].has_flag(RegisterStatusFlag_InUse))
+			{
+				register_status[i].set_all_flags(flags);
+				return i;
+			}
+		}
+
+		internal_error("No free xmm registers");
+		return 0;
+	}
+
 	void dump()
 	{
-		for (int i = 0; i < 16; i++)
+		for (int i = 0; i < 32; i++)
 		{
 			auto& rs = register_status[i];
 
-			printf("  %s : ", register_name(i, 8));
+			if (i < 16)
+				printf("  %s : ", register_name(i, 8));
+			else
+				printf("  %s : ", xmm_register_name(i));
+
 			if (rs.has_flag(RegisterStatusFlag_InUse)) printf("in_use ");
 			if (rs.has_flag(RegisterStatusFlag_ContainsVariable)) printf("contains_variable ");
 			if (rs.has_flag(RegisterStatusFlag_ContainsVariable))
@@ -157,6 +194,93 @@ std::pair<uint32_t, size_t> compute_stack_offset_and_size(Ast& ast, SymbolTable&
 	}
 }
 
+void codegen_binop(Ast& ast, size_t index, int r0, int r1, size_t arg_size, FILE* file, RegisterState& registers)
+{
+	if (ast[index].type == AstNodeType::BinOpAdd)
+		fprintf(file, "    add %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
+	else if (ast[index].type == AstNodeType::BinOpSub)
+		fprintf(file, "    sub %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
+	else if (ast[index].type == AstNodeType::BinOpMul)
+		fprintf(file, "    imul %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
+	else if (ast[index].type == AstNodeType::BinOpDiv)
+	{
+		// rdx needs to be 0
+		// result = expr_0 / expr_1
+		// expr_0 needs to be in rax
+
+		if (r1 == 0)
+		{
+			fprintf(file, "    push %s\n", register_name(r1, 8));
+			fprintf(file, "    mov %s, %s\n", register_name(r1, arg_size), register_name(r0, arg_size));
+			fprintf(file, "    pop %s\n", register_name(r0, 8));
+			std::swap(r0, r1);
+		}
+
+		bool pop_rax = false;
+		bool pop_rdx = false;
+
+		if (r0 != 0 && registers.register_status[0].has_flag(RegisterStatusFlag_InUse))
+		{
+			fprintf(file, "    push %s\n", register_name(0, 8));
+			pop_rax = true;
+		}
+
+		if (registers.register_status[3].has_flag(RegisterStatusFlag_InUse))
+		{
+			fprintf(file, "    push %s\n", register_name(3, 8));
+			pop_rdx = true;
+		}
+
+		// Set rdx to 0
+		fprintf(file, "    mov %s, %d\n", register_name(3, arg_size), 0);
+
+		// Move expr_0 into rax
+		if (r0 != 0) fprintf(file, "    mov %s, %s\n", register_name(0, arg_size), register_name(r0, arg_size));
+
+		// Do the divide, result is in rax
+		fprintf(file, "    div %s\n", register_name(r1, arg_size));
+
+		// Move result to r0
+		if (r0 != 0) fprintf(file, "    mov %s, %s\n", register_name(r0, arg_size), register_name(0, arg_size));
+
+		if (pop_rdx)
+			fprintf(file, "    pop %s\n", register_name(3, 8));
+
+		if (pop_rax)
+			fprintf(file, "    pop %s\n", register_name(0, 8));
+	}
+	else if (ast[index].type == AstNodeType::BinLogicalAnd)
+		fprintf(file, "    and %s, %s\n", register_name(r0, 1), register_name(r1, 1));
+	else if (ast[index].type == AstNodeType::BinLogicalOr)
+		fprintf(file, "    or %s, %s\n", register_name(r0, 1), register_name(r1, 1));
+	else
+	{
+		fprintf(file, "    cmp %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
+		if (ast[index].type == AstNodeType::BinCompGreater)
+			fprintf(file, "    setg %s\n", register_name(r0, 1));
+		else if (ast[index].type == AstNodeType::BinCompGreaterEqual)
+			fprintf(file, "    setge %s\n", register_name(r0, 1));
+		else if (ast[index].type == AstNodeType::BinCompLess)
+			fprintf(file, "    setl %s\n", register_name(r0, 1));
+		else if (ast[index].type == AstNodeType::BinCompLessEqual)
+			fprintf(file, "    setle %s\n", register_name(r0, 1));
+		else if (ast[index].type == AstNodeType::BinCompEqual)
+			fprintf(file, "    sete %s\n", register_name(r0, 1));
+		else if (ast[index].type == AstNodeType::BinCompNotEqual)
+			fprintf(file, "    setne %s\n", register_name(r0, 1));
+		else
+			internal_error("Unhandled binary compare");
+	}
+}
+
+void codegen_binop_float(Ast& ast, size_t index, int r0, int r1, size_t arg_size, FILE* file, RegisterState& registers)
+{
+	if (ast[index].type == AstNodeType::BinOpAdd)
+		fprintf(file, "    addsd %s, %s\n", xmm_register_name(r0), xmm_register_name(r1));
+	else
+		internal_error("Unhandled float binary operation");
+}
+
 int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, RegisterState& registers)
 {
 	if (ast[index].type == AstNodeType::LiteralInt)
@@ -187,6 +311,17 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		fprintf(file, "    mov %s, qword LSTR%zu\n", register_name(r, 8), str_index);
 		return r;
 	}
+	else if (ast[index].type == AstNodeType::LiteralFloat)
+	{
+		// Get a temporary register to load address of float constant
+		int temp_reg = registers.get_free_register(0);
+		auto float_index = ast[index].data_literal_float.constant_float_index;
+		fprintf(file, "    mov %s, qword LFLT%zu\n", register_name(temp_reg, 8), float_index);
+
+		int r = registers.get_free_xmm_register(RegisterStatusFlag_InUse);
+		fprintf(file, "    movq %s, [%s]\n", xmm_register_name(r), register_name(temp_reg, 8));
+		return r;
+	}
 	else if (ast[index].type == AstNodeType::BinOpAdd
 		  || ast[index].type == AstNodeType::BinOpSub
 		  || ast[index].type == AstNodeType::BinOpMul
@@ -212,81 +347,10 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		int r1 = codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
 		int r0 = codegen_expr(ast, symbol_table, file, ast[index].child1, registers);
 
-		if (ast[index].type == AstNodeType::BinOpAdd)
-			fprintf(file, "    add %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
-		else if (ast[index].type == AstNodeType::BinOpSub)
-			fprintf(file, "    sub %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
-		else if (ast[index].type == AstNodeType::BinOpMul)
-			fprintf(file, "    imul %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
-		else if (ast[index].type == AstNodeType::BinOpDiv)
-		{
-			// rdx needs to be 0
-			// result = expr_0 / expr_1
-			// expr_0 needs to be in rax
-
-			if (r1 == 0)
-			{
-				fprintf(file, "    push %s\n", register_name(r1, 8));
-				fprintf(file, "    mov %s, %s\n", register_name(r1, arg_size), register_name(r0, arg_size));
-				fprintf(file, "    pop %s\n", register_name(r0, 8));
-				std::swap(r0, r1);
-			}
-
-			bool pop_rax = false;
-			bool pop_rdx = false;
-
-			if (r0 != 0 && registers.register_status[0].has_flag(RegisterStatusFlag_InUse))
-			{
-				fprintf(file, "    push %s\n", register_name(0, 8));
-				pop_rax = true;
-			}
-
-			if (registers.register_status[3].has_flag(RegisterStatusFlag_InUse))
-			{
-				fprintf(file, "    push %s\n", register_name(3, 8));
-				pop_rdx = true;
-			}
-
-			// Set rdx to 0
-			fprintf(file, "    mov %s, %d\n", register_name(3, arg_size), 0);
-
-			// Move expr_0 into rax
-			if (r0 != 0) fprintf(file, "    mov %s, %s\n", register_name(0, arg_size), register_name(r0, arg_size));
-
-			// Do the divide, result is in rax
-			fprintf(file, "    div %s\n", register_name(r1, arg_size));
-
-			// Move result to r0
-			if (r0 != 0) fprintf(file, "    mov %s, %s\n", register_name(r0, arg_size), register_name(0, arg_size));
-
-			if (pop_rdx)
-				fprintf(file, "    pop %s\n", register_name(3, 8));
-
-			if (pop_rax)
-				fprintf(file, "    pop %s\n", register_name(0, 8));
-		}
-		else if (ast[index].type == AstNodeType::BinLogicalAnd)
-			fprintf(file, "    and %s, %s\n", register_name(r0, 1), register_name(r1, 1));
-		else if (ast[index].type == AstNodeType::BinLogicalOr)
-			fprintf(file, "    or %s, %s\n", register_name(r0, 1), register_name(r1, 1));
+		if (is_float_type(ast[index].type_annotation.value()))
+			codegen_binop_float(ast, index, r0, r1, arg_size, file, registers);
 		else
-		{
-			fprintf(file, "    cmp %s, %s\n", register_name(r0, arg_size), register_name(r1, arg_size));
-			if (ast[index].type == AstNodeType::BinCompGreater)
-				fprintf(file, "    setg %s\n", register_name(r0, 1));
-			else if (ast[index].type == AstNodeType::BinCompGreaterEqual)
-				fprintf(file, "    setge %s\n", register_name(r0, 1));
-			else if (ast[index].type == AstNodeType::BinCompLess)
-				fprintf(file, "    setl %s\n", register_name(r0, 1));
-			else if (ast[index].type == AstNodeType::BinCompLessEqual)
-				fprintf(file, "    setle %s\n", register_name(r0, 1));
-			else if (ast[index].type == AstNodeType::BinCompEqual)
-				fprintf(file, "    sete %s\n", register_name(r0, 1));
-			else if (ast[index].type == AstNodeType::BinCompNotEqual)
-				fprintf(file, "    setne %s\n", register_name(r0, 1));
-			else
-				internal_error("Unhandled binary compare");
-		}
+			codegen_binop(ast, index, r0, r1, arg_size, file, registers);
 
 		registers.register_status[r0].set_all_flags(RegisterStatusFlag_InUse);
 		if (r0 != r1) registers.register_status[r1].unset_flag(RegisterStatusFlag_InUse);
@@ -296,7 +360,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 	{
 		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, index);
 
-		for (int r = 0; r < 16; r++)
+		for (int r = 0; r < 32; r++)
 		{
 			auto& rs = registers.register_status[r];
 			if (rs.has_flag(RegisterStatusFlag_ContainsVariable))
@@ -309,10 +373,19 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 			}
 		}
 
-		int r = registers.get_free_register(RegisterStatusFlag_InUse | RegisterStatusFlag_ContainsVariable);
+		int r;
+		if (is_float_type(ast[index].type_annotation.value()))
+		{
+			r = registers.get_free_xmm_register(RegisterStatusFlag_InUse | RegisterStatusFlag_ContainsVariable);
+			fprintf(file, "    movq %s, [rbp - %d]\n", xmm_register_name(r), stack_offset);
+		}
+		else
+		{
+			r = registers.get_free_register(RegisterStatusFlag_InUse | RegisterStatusFlag_ContainsVariable);
+			fprintf(file, "    mov %s, [rbp - %d]\n", register_name(r, data_size), stack_offset);
+		}
 		registers.register_status[r].stack_offset = stack_offset;
 		registers.register_status[r].stack_size = data_size;
-		fprintf(file, "    mov %s, [rbp - %d]\n", register_name(r, data_size), stack_offset);
 		return r;
 	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
@@ -367,7 +440,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		}
 
 		// Everything which wasn't saved is trashed
-		for (int i = 0; i < 16; i++)
+		for (int i = 0; i < 32; i++)
 		{
 			if (!registers.register_status[i].has_flag(RegisterStatusFlag_InUse))
 				registers.register_status[i].set_all_flags(0);
@@ -411,9 +484,13 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		int r = codegen_expr(ast, symbol_table, file, ast[index].child1, registers);
 
 		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, ast[index].child0);
-		fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(r, data_size));
 
-		for (int i = 0; i < 16; i++)
+		if (is_float_type(ast[ast[index].child0].type_annotation.value()))
+			fprintf(file, "    movq [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+		else
+			fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(r, data_size));
+
+		for (int i = 0; i < 32; i++)
 		{
 			if (registers.register_status[i].has_flag(RegisterStatusFlag_ContainsVariable)
 				&& registers.register_status[i].stack_offset == stack_offset)
@@ -791,5 +868,12 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	for (size_t i = 0; i < symbol_table.constant_strings.size(); i++)
 	{
 		fprintf(file, "LSTR%zu: db \"%s\", 10\n", i, symbol_table.constant_strings[i].str.c_str());
+	}
+
+	for (size_t i = 0; i < symbol_table.constant_floats.size(); i++)
+	{
+		char flt_str[64];
+		snprintf(flt_str, 64, "%f", symbol_table.constant_floats[i]);
+		fprintf(file, "LFLT%zu: dq %s\n", i, flt_str);
 	}
 }

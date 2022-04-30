@@ -22,6 +22,11 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		auto& str = symbol_table.constant_strings[ast[index].data_literal_string.constant_string_index].str;
 		fprintf(output, "\"%s\"\n", str.c_str());
 	}
+	else if (ast[index].type == AstNodeType::LiteralFloat)
+	{
+		auto& val = symbol_table.constant_floats[ast[index].data_literal_float.constant_float_index];
+		fprintf(output, "%f\n", val);
+	}
 	else if (ast[index].type == AstNodeType::Dereference
 		|| ast[index].type == AstNodeType::AddressOf)
 	{
@@ -367,6 +372,18 @@ size_t SymbolTable::find_add_string(const std::string& str)
 
 	constant_strings.emplace_back(str);
 	return constant_strings.size() - 1;
+}
+
+size_t SymbolTable::find_add_float(double value)
+{
+	for (size_t i = 0; i < constant_floats.size(); i++)
+	{
+		if (constant_floats[i] == value)
+			return i;
+	}
+
+	constant_floats.emplace_back(value);
+	return constant_floats.size() - 1;
 }
 
 void SymbolTable::add_linker_path(const std::string& path, bool is_macos_framework)
