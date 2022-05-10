@@ -62,6 +62,13 @@ int register_for_parameter(int i)
 		internal_error("Register overflow");
 }
 
+int xmm_register_for_parameter(int i)
+{
+	if (i < 0 || i >= 8) internal_error("Float parameter register overflow");
+
+	return 16 + i;
+}
+
 // "Volatile"/"Call clobbered registers" are free to use within a function but need to be saved before a call
 int caller_saved_registers[] = { 0, 2, 3, 4, 5, 8, 9, 10, 11 };
 // "Call preserved registers" need to be saved and restored within the function if they are used
@@ -410,12 +417,35 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 
 			RegisterState registers_temp = registers;
 
-			for (int i = 0; i < func.parameters.size(); i++)
+			int non_float_iter = 0;
+			int float_iter = 0;
+			for (auto param_variable_index : func.parameters)
 			{
 				int r = codegen_expr(ast, symbol_table, file, ast[current_arg_node].child0, registers_temp);
-				fprintf(file, "    mov %s, %s\n", register_name(register_for_parameter(i), 8), register_name(r, 8));
+
+				auto var_type = func_scope.local_variables[param_variable_index].type_index;
+
+				TypeAnnotation ta;
+				ta.special = false;
+				ta.type_index = var_type;
+
+				int param_register;
+
+				if (is_float_type(ta))
+				{
+					param_register = xmm_register_for_parameter(float_iter);
+					fprintf(file, "    movq %s, %s\n", xmm_register_name(param_register), xmm_register_name(r));
+					float_iter += 1;
+				}
+				else
+				{
+					param_register = register_for_parameter(non_float_iter);
+					fprintf(file, "    mov %s, %s\n", register_name(param_register, 8), register_name(r, 8));
+					non_float_iter += 1;
+				}
+
 				registers_temp.register_status[r].unset_flag(RegisterStatusFlag_InUse);
-				registers_temp.register_status[register_for_parameter(i)].set_all_flags(RegisterStatusFlag_InUse);
+				registers_temp.register_status[param_register].set_all_flags(RegisterStatusFlag_InUse);
 
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}
@@ -423,17 +453,35 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 
 		fprintf(file, "    call %s\n", func.name.c_str());
 
-		// Move the result into a free register
-		int r = registers.get_free_register(RegisterStatusFlag_InUse);
-		if (r != 0)
-			fprintf(file, "    mov %s, %s\n", register_name(r, 8), register_name(0, 8));
+		std::optional<int> return_reg;
+		if (func.return_type_index.has_value())
+		{
+			TypeAnnotation return_ta;
+			return_ta.special = false;
+			return_ta.type_index = func.return_type_index.value();
+
+			// Move the result into a free register
+			if (is_float_type(return_ta))
+			{
+				return_reg = registers.get_free_xmm_register(RegisterStatusFlag_InUse);
+				if (*return_reg != 16)
+					fprintf(file, "   movq %s, %s\n", xmm_register_name(*return_reg), xmm_register_name(16));
+			}
+			else
+			{
+				return_reg = registers.get_free_register(RegisterStatusFlag_InUse);
+				if (*return_reg != 0)
+					fprintf(file, "    mov %s, %s\n", register_name(*return_reg, 8), register_name(0, 8));
+			}
+
+		}
 
 		// Restore the registers
 		for (int i = 0; i < 9; i++)
 		{
 			// Iterate backwards
 			int r0 = caller_saved_registers[9 - 1 - i];
-			if (registers.register_status[r0].has_flag(RegisterStatusFlag_InUse) && r != r0)
+			if (registers.register_status[r0].has_flag(RegisterStatusFlag_InUse) && !(return_reg.has_value() && *return_reg == r0))
 			{
 				fprintf(file, "    pop %s\n", register_name(r0, 8));
 			}
@@ -446,7 +494,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 				registers.register_status[i].set_all_flags(0);
 		}
 
-		return r;
+		return return_reg.value_or(0);
 	}
 	else if (ast[index].type == AstNodeType::AddressOf)
 	{
@@ -556,7 +604,10 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 			if (r != 0)
 			{
 				registers.register_status[r].unset_flag(RegisterStatusFlag_InUse);
-				fprintf(file, "    mov %s, %s\n", register_name(0, 8), register_name(r, 8));
+				if (r < 16)
+					fprintf(file, "    mov %s, %s\n", register_name(0, 8), register_name(r, 8));
+				else
+					fprintf(file, "    movq %s, %s\n", xmm_register_name(16), xmm_register_name(r));
 			}
 		}
 
@@ -685,15 +736,36 @@ void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* fi
 	fprintf(file, "    sub rsp, %d\n", ast[index].data_function_definition.stack_size);
 
 	RegisterState registers;
-	for (int i = 0; i < func.parameters.size(); i++)
+	int non_float_iter = 0;
+	int float_iter = 0;
+	for (auto param_variable_index : func.parameters)
 	{
-		auto param_offset = func_scope.local_variables[func.parameters[i]].stack_offset;
-		auto var_type = func_scope.local_variables[func.parameters[i]].type_index;
+		auto param_offset = func_scope.local_variables[param_variable_index].stack_offset;
+		auto var_type = func_scope.local_variables[param_variable_index].type_index;
 		auto data_size = symbol_table.types[var_type].data_size;
-		fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_name(register_for_parameter(i), data_size));
-		registers.register_status[register_for_parameter(i)].set_all_flags(RegisterStatusFlag_ContainsVariable);
-		registers.register_status[register_for_parameter(i)].stack_offset = param_offset;
-		registers.register_status[register_for_parameter(i)].stack_size = data_size;
+
+		TypeAnnotation ta;
+		ta.special = false;
+		ta.type_index = var_type;
+
+		int param_register;
+
+		if (is_float_type(ta))
+		{
+			param_register = xmm_register_for_parameter(float_iter);
+			fprintf(file, "    movq [rbp - %d], %s\n", param_offset, xmm_register_name(param_register));
+			float_iter += 1;
+		}
+		else
+		{
+			param_register = register_for_parameter(non_float_iter);
+			fprintf(file, "    mov [rbp - %d], %s\n", param_offset, register_name(param_register, data_size));
+			non_float_iter += 1;
+		}
+
+		registers.register_status[param_register].set_all_flags(RegisterStatusFlag_ContainsVariable);
+		registers.register_status[param_register].stack_offset = param_offset;
+		registers.register_status[param_register].stack_size = data_size;
 	}
 
 	if (ast[index].next.has_value())
