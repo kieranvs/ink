@@ -314,6 +314,10 @@ int main(int argc, char** argv)
 		if (bytes_written >= buffer_size)
 			internal_error("Linker command buffer length overflow");
 
+		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", obj_file_name.c_str());
+		if (bytes_written >= buffer_size)
+			internal_error("Linker command buffer length overflow");
+
 		for (auto& link_path : symbol_table.linker_paths)
 		{
 			if (link_path.path == "libc") continue;
@@ -331,10 +335,6 @@ int main(int argc, char** argv)
 			if (bytes_written >= buffer_size)
 				internal_error("Linker command buffer length overflow");
 		}
-
-		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, " %s", obj_file_name.c_str());
-		if (bytes_written >= buffer_size)
-			internal_error("Linker command buffer length overflow");
 
 		int linker_error = exec_process(linker_command, linker_output);
 		if (linker_error != 0)

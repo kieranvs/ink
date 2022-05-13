@@ -798,19 +798,21 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	if (!main_defined) log_general_error("No main function defined");
 
 	const char* entry_point_name;
-	const char* libc_entry_point_name = "_main";
+	const char* libc_entry_point_name;
 	const char* write_syscall;
 	const char* exit_syscall;
 
 	if (get_platform() == Platform::Linux)
 	{
 		entry_point_name = "_start";
+		libc_entry_point_name = "main";
 		write_syscall = "1";
 		exit_syscall = "60";
 	}
 	else if (get_platform() == Platform::MacOS)
 	{
 		entry_point_name = "start";
+		libc_entry_point_name = "_main";
 		write_syscall = "0x2000004";
 		exit_syscall = "0x2000001";
 	}
