@@ -27,4 +27,6 @@ fn main() : int
 	print_uint32(11 / 3);
 	print_uint32(12 / 3);
 	print_uint32(8324 / 4);
+
+	return 0;
 }
