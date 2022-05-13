@@ -933,6 +933,96 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	fprintf(file, "    leave\n");
 	fprintf(file, "    ret\n");
 
+	fprintf(file, "itoa:\n"); // rdi = integer, rsi = address to write
+	fprintf(file, "    push rbp\n");
+	fprintf(file, "    mov rbp, rsp\n");
+	fprintf(file, "    sub rsp, 16\n");
+
+	fprintf(file, "    mov eax, edi\n");
+	fprintf(file, "    mov ecx, 10\n");
+
+	fprintf(file, "    mov rdi, rsi\n");
+	fprintf(file, "    mov rsi, rbp\n");
+
+	fprintf(file, ".toascii_digit:\n");
+	fprintf(file, "    xor edx, edx\n");
+	fprintf(file, "    div ecx\n");
+	fprintf(file, "    add edx, '0'\n");
+	fprintf(file, "    dec rsi\n");
+	fprintf(file, "    mov [rsi], dl\n");
+	fprintf(file, "    test eax, eax\n");
+	fprintf(file, "    jnz .toascii_digit\n");
+
+	// Write the buffer back to rdi (original rsi)
+	fprintf(file, "    mov rcx, 0\n");
+	fprintf(file, ".loop:\n");
+	fprintf(file, "    mov rax, [rsi]\n");
+	fprintf(file, "    mov [rdi], rax\n");
+	fprintf(file, "    inc rsi\n");
+	fprintf(file, "    inc rdi\n");
+	fprintf(file, "    inc rcx\n");
+	fprintf(file, "    cmp rsi, rbp\n");
+	fprintf(file, "    jne .loop\n");
+
+	fprintf(file, "    mov rax, rcx\n");
+
+	fprintf(file, "    leave\n");
+	fprintf(file, "    ret\n");
+
+	fprintf(file, "print_float:\n");
+	fprintf(file, "    push rbp\n");
+	fprintf(file, "    mov rbp, rsp\n");
+	fprintf(file, "    sub rsp, 64\n");
+
+	fprintf(file, "    cvttsd2si rdi, xmm0\n");
+	// xmm1 = integer part
+	fprintf(file, "    cvtsi2sd xmm1, rdi\n");
+	// xmm0 = fractional part
+	fprintf(file, "    subsd xmm0, xmm1\n");
+
+	fprintf(file, "    mov rsi, rsp\n");
+	fprintf(file, "    call itoa\n");
+
+	fprintf(file, "    mov r8, rax\n");
+
+	fprintf(file, "    mov BYTE [rsp + r8], 46\n");
+	fprintf(file, "    inc r8\n");
+
+	// xmm2 = 10
+	fprintf(file, "    mov rax, 10\n");
+	fprintf(file, "    xorps xmm2, xmm2\n"); // Clear xmm2
+	fprintf(file, "    cvtsi2sd xmm2, rax\n");
+
+	// i = 0
+	fprintf(file, "    mov rax, 0\n");
+	fprintf(file, ".loop\n");
+	fprintf(file, "    mulsd xmm0, xmm2\n");
+	fprintf(file, "    cvttsd2si rcx, xmm0\n"); // Integer part
+	fprintf(file, "    xorps xmm1, xmm1\n"); // Clear xmm1
+	fprintf(file, "    cvtsi2sd xmm1, rcx\n"); // xmm1 is integer part
+	fprintf(file, "    subsd xmm0, xmm1\n"); // xmm0 -= xmm1
+
+	// rcx has the digit
+	fprintf(file, "    add cl, 48\n"); // add '0'
+	fprintf(file, "    mov [rsp + r8], cl\n");
+	fprintf(file, "    inc rax\n");
+	fprintf(file, "    inc r8\n");
+	fprintf(file, "    cmp rax, 6\n");
+	fprintf(file, "    jne .loop\n");
+
+	fprintf(file, "    mov BYTE [rsp + r8], 10\n");
+	fprintf(file, "    inc r8\n");
+
+	// print the buffer
+	fprintf(file, "    mov rsi, rsp\n");
+	fprintf(file, "    mov rdx, r8\n");
+	fprintf(file, "    mov rax, %s\n", write_syscall);
+	fprintf(file, "    mov rdi, 1\n");
+	fprintf(file, "    syscall\n");
+
+	fprintf(file, "    leave\n");
+	fprintf(file, "    ret\n");
+
 	fprintf(file, "    section .data\n");
 	fprintf(file, "bool_print_true_msg:  db        \"true\", 10\n");
 	fprintf(file, "bool_print_false_msg:  db        \"false\", 10\n");
