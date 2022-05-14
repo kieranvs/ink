@@ -141,7 +141,8 @@ enum TypeType
 {
 	Intrinsic,
 	Pointer,
-	Struct
+	Struct,
+	Alias
 };
 
 struct Type
@@ -157,6 +158,9 @@ struct Type
 
 	// Set for structs
 	size_t scope;
+
+	// Set for alias
+	size_t actual_type;
 };
 
 struct SymbolTable;

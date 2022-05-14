@@ -220,6 +220,11 @@ void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_inde
 		pretty_print_type(output, symbol_table, t.remove_ptr_type);
 		fprintf(output, "*");
 	}
+	else if (t.type == TypeType::Alias)
+	{
+		fprintf(output, "%s=", t.name.c_str());
+		pretty_print_type(output, symbol_table, t.actual_type);
+	}
 	else
 		internal_error("Unhandled type type in pretty_print_type\n");
 }
@@ -261,6 +266,8 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 			fprintf(output, "  Type: Pointer\n");
 		else if (t.type == TypeType::Struct)
 			fprintf(output, "  Type: Struct\n");
+		else if (t.type == TypeType::Alias)
+			fprintf(output, "  Type: Alias\n");
 		else
 			internal_error("Unhandled type type in dump_symbol_table\n");
 
@@ -356,7 +363,12 @@ std::optional<size_t> SymbolTable::find_type(const std::string& name)
 	for (size_t i = 0; i < types.size(); i++)
 	{
 		if (types[i].name == name)
-			return i;
+		{
+			if (types[i].type == TypeType::Alias)
+				return types[i].actual_type;
+			else
+				return i;
+		}
 	}
 
 	return std::nullopt;

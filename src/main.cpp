@@ -129,12 +129,27 @@ int main(int argc, char** argv)
 		type.type = TypeType::Intrinsic;
 		type.name = name;
 		type.data_size = data_size;
+
+		return symbol_table.types.size() - 1;
 	};
 
-	add_intrinsic_type("int", 8);
-	add_intrinsic_type("bool", 1);
-	add_intrinsic_type("char", 1);
-	add_intrinsic_type("float", 8);
+	auto int_type = add_intrinsic_type("u64", 8);
+	auto bool_type = add_intrinsic_type("bool", 1);
+	auto char_type = add_intrinsic_type("u8", 1);
+	auto float_type = add_intrinsic_type("f64", 8);
+
+	auto add_alias_type = [&](const char* name, size_t actual_type)
+	{
+		symbol_table.types.emplace_back();
+		auto& type = symbol_table.types.back();
+		type.type = TypeType::Alias;
+		type.name = name;
+		type.actual_type = actual_type;
+	};
+
+	add_alias_type("int", int_type);
+	add_alias_type("char", char_type);
+	add_alias_type("float", float_type);
 
 	{
 		symbol_table.scopes.emplace_back();
