@@ -280,12 +280,48 @@ void codegen_binop(Ast& ast, size_t index, int r0, int r1, size_t arg_size, FILE
 	}
 }
 
-void codegen_binop_float(Ast& ast, size_t index, int r0, int r1, size_t arg_size, FILE* file, RegisterState& registers)
+int codegen_binop_float(Ast& ast, size_t index, int r0, int r1, FILE* file, RegisterState& registers)
 {
 	if (ast[index].type == AstNodeType::BinOpAdd)
 		fprintf(file, "    addsd %s, %s\n", xmm_register_name(r0), xmm_register_name(r1));
+	else if (ast[index].type == AstNodeType::BinOpSub)
+		fprintf(file, "    subsd %s, %s\n", xmm_register_name(r0), xmm_register_name(r1));
+	else if (ast[index].type == AstNodeType::BinOpMul)
+		fprintf(file, "    mulsd %s, %s\n", xmm_register_name(r0), xmm_register_name(r1));
+	else if (ast[index].type == AstNodeType::BinOpDiv)
+		fprintf(file, "    divsd %s, %s\n", xmm_register_name(r0), xmm_register_name(r1));
 	else
-		internal_error("Unhandled float binary operation");
+	{
+		int r2 = registers.get_free_register(RegisterStatusFlag_InUse);
+
+		if (ast[index].type == AstNodeType::BinCompLess
+		 || ast[index].type == AstNodeType::BinCompLessEqual)
+		{
+			fprintf(file, "    comisd %s, %s\n", xmm_register_name(r1), xmm_register_name(r0));
+			if (ast[index].type == AstNodeType::BinCompLess)
+				fprintf(file, "    seta %s\n", register_name(r2, 1));
+			else if (ast[index].type == AstNodeType::BinCompLessEqual)
+				fprintf(file, "    setnb %s\n", register_name(r2, 1));
+		}
+		else
+		{
+			fprintf(file, "    comisd %s, %s\n", xmm_register_name(r0), xmm_register_name(r1));
+			if (ast[index].type == AstNodeType::BinCompGreater)
+				fprintf(file, "    seta %s\n", register_name(r2, 1));
+			else if (ast[index].type == AstNodeType::BinCompGreaterEqual)
+				fprintf(file, "    setnb %s\n", register_name(r2, 1));
+			else if (ast[index].type == AstNodeType::BinCompEqual)
+				fprintf(file, "    sete %s\n", register_name(r2, 1));
+			else if (ast[index].type == AstNodeType::BinCompNotEqual)
+				fprintf(file, "    setne %s\n", register_name(r2, 1));
+			else
+				internal_error("Unhandled float binary operation");
+		}
+
+		return r2;
+	}
+
+	return r0;
 }
 
 int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, RegisterState& registers)
@@ -343,25 +379,37 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		  || ast[index].type == AstNodeType::BinLogicalOr
 		)
 	{
-		size_t arg_size = 8;
 		auto& lhs = ast[ast[index].child0];
 		auto& rhs = ast[ast[index].child1];
-		if (lhs.type_annotation->special == false)
-			arg_size = symbol_table.types[lhs.type_annotation->type_index].data_size;
-		else if (rhs.type_annotation->special == false)
-			arg_size = symbol_table.types[rhs.type_annotation->type_index].data_size;
 
 		int r1 = codegen_expr(ast, symbol_table, file, ast[index].child0, registers);
 		int r0 = codegen_expr(ast, symbol_table, file, ast[index].child1, registers);
 
-		if (is_float_type(ast[index].type_annotation.value()))
-			codegen_binop_float(ast, index, r0, r1, arg_size, file, registers);
+		if (is_float_type(lhs.type_annotation.value()))
+		{
+			int r2 = codegen_binop_float(ast, index, r0, r1, file, registers);
+
+			registers.register_status[r2].set_all_flags(RegisterStatusFlag_InUse);
+			if (r2 != r0) registers.register_status[r0].unset_flag(RegisterStatusFlag_InUse);
+			if (r2 != r1) registers.register_status[r1].unset_flag(RegisterStatusFlag_InUse);
+
+			return r2;
+		}
 		else
+		{
+			size_t arg_size = 8;
+			if (lhs.type_annotation->special == false)
+				arg_size = symbol_table.types[lhs.type_annotation->type_index].data_size;
+			else if (rhs.type_annotation->special == false)
+				arg_size = symbol_table.types[rhs.type_annotation->type_index].data_size;
+
 			codegen_binop(ast, index, r0, r1, arg_size, file, registers);
 
-		registers.register_status[r0].set_all_flags(RegisterStatusFlag_InUse);
-		if (r0 != r1) registers.register_status[r1].unset_flag(RegisterStatusFlag_InUse);
-		return r0;
+			registers.register_status[r0].set_all_flags(RegisterStatusFlag_InUse);
+			if (r0 != r1) registers.register_status[r1].unset_flag(RegisterStatusFlag_InUse);
+
+			return r0;
+		}
 	}
 	else if (ast[index].type == AstNodeType::Variable || ast[index].type == AstNodeType::Selector)
 	{
