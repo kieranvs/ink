@@ -137,6 +137,7 @@ int main(int argc, char** argv)
 	auto bool_type = add_intrinsic_type("bool", 1);
 	auto char_type = add_intrinsic_type("u8", 1);
 	auto float_type = add_intrinsic_type("f64", 8);
+	add_intrinsic_type("f32", 4);
 
 	auto add_alias_type = [&](const char* name, size_t actual_type)
 	{
@@ -211,6 +212,22 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_float";
+		func.parameters.push_back(0);
+		func.intrinsic = true;
+	}
+
+	{
+		symbol_table.scopes.emplace_back();
+		auto scope_index = symbol_table.scopes.size() - 1;
+		auto& scope = symbol_table.scopes.back();
+
+		scope.local_variables.emplace_back();
+		scope.local_variables.back().type_index = symbol_table.find_type("f32").value();
+
+		symbol_table.functions.emplace_back();
+		auto& func = symbol_table.functions.back();
+		func.scope = scope_index;
+		func.name = "print_float32";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}

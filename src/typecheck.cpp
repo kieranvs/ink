@@ -9,7 +9,8 @@ size_t special_type_index_literal_float = 3;
 size_t intrinsic_type_index_int;
 size_t intrinsic_type_index_bool;
 size_t intrinsic_type_index_char;
-size_t intrinsic_type_index_float;
+size_t intrinsic_type_index_f32;
+size_t intrinsic_type_index_f64;
 
 bool special_matches(size_t special, size_t actual)
 {
@@ -20,7 +21,7 @@ bool special_matches(size_t special, size_t actual)
 	else if (special == special_type_index_literal_char)
 		return actual == intrinsic_type_index_char;
 	else if (special == special_type_index_literal_float)
-		return actual == intrinsic_type_index_float;
+		return actual == intrinsic_type_index_f32 || actual == intrinsic_type_index_f64;
 
 	return false;
 }
@@ -83,9 +84,14 @@ bool is_bool_type(TypeAnnotation& ta)
 bool is_number_type(TypeAnnotation& ta)
 {
 	if (ta.special)
-		return ta.type_index == special_type_index_literal_int || ta.type_index == special_type_index_literal_char || ta.type_index == special_type_index_literal_float;
+		return ta.type_index == special_type_index_literal_int
+			|| ta.type_index == special_type_index_literal_char
+			|| ta.type_index == special_type_index_literal_float;
 	else
-		return ta.type_index == intrinsic_type_index_int || ta.type_index == intrinsic_type_index_char || ta.type_index == intrinsic_type_index_float;
+		return ta.type_index == intrinsic_type_index_int
+			|| ta.type_index == intrinsic_type_index_char
+			|| ta.type_index == intrinsic_type_index_f32
+			|| ta.type_index == intrinsic_type_index_f64;
 }
 
 bool is_float_type(TypeAnnotation& ta)
@@ -93,7 +99,21 @@ bool is_float_type(TypeAnnotation& ta)
 	if (ta.special)
 		return ta.type_index == special_type_index_literal_float;
 	else
-		return ta.type_index == intrinsic_type_index_float;
+		return ta.type_index == intrinsic_type_index_f32
+			|| ta.type_index == intrinsic_type_index_f64;
+}
+
+bool is_float_32_type(TypeAnnotation& ta)
+{
+	return !ta.special && ta.type_index == intrinsic_type_index_f32;
+}
+
+bool is_float_64_type(TypeAnnotation& ta)
+{
+	if (ta.special)
+		return ta.type_index == special_type_index_literal_float;
+	else
+		return ta.type_index == intrinsic_type_index_f64;
 }
 
 void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::optional<size_t> return_type_index)
@@ -464,7 +484,8 @@ void type_check(SymbolTable& symbol_table)
 	intrinsic_type_index_int = symbol_table.find_type("int").value();
 	intrinsic_type_index_bool = symbol_table.find_type("bool").value();
 	intrinsic_type_index_char = symbol_table.find_type("char").value();
-	intrinsic_type_index_float = symbol_table.find_type("float").value();
+	intrinsic_type_index_f32 = symbol_table.find_type("f32").value();
+	intrinsic_type_index_f64 = symbol_table.find_type("f64").value();
 
 	for (auto& func : symbol_table.functions)
 	{

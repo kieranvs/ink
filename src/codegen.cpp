@@ -362,7 +362,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		fprintf(file, "    mov %s, qword LFLT%zu\n", register_name(temp_reg, 8), float_index);
 
 		int r = registers.get_free_xmm_register(RegisterStatusFlag_InUse);
-		fprintf(file, "    movq %s, [%s]\n", xmm_register_name(r), register_name(temp_reg, 8));
+		fprintf(file, "    movsd %s, [%s]\n", xmm_register_name(r), register_name(temp_reg, 8));
 		return r;
 	}
 	else if (ast[index].type == AstNodeType::BinOpAdd
@@ -432,7 +432,8 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		if (is_float_type(ast[index].type_annotation.value()))
 		{
 			r = registers.get_free_xmm_register(RegisterStatusFlag_InUse | RegisterStatusFlag_ContainsVariable);
-			fprintf(file, "    movq %s, [rbp - %d]\n", xmm_register_name(r), stack_offset);
+			const char* move_ins = is_float_64_type(ast[index].type_annotation.value()) ? "movsd" : "movss";
+			fprintf(file, "    %s %s, [rbp - %d]\n", move_ins, xmm_register_name(r), stack_offset);
 		}
 		else
 		{
@@ -481,8 +482,18 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 
 				if (is_float_type(ta))
 				{
+					if (is_float_32_type(ta))
+					{
+						// Might need to convert f64 to f32 because f32 is compatible with float literal
+						if (is_float_64_type(ast[ast[current_arg_node].child0].type_annotation.value()))
+						{
+							fprintf(file, "    cvtsd2ss %s, %s\n", xmm_register_name(r), xmm_register_name(r));
+						}
+					}
+
 					param_register = xmm_register_for_parameter(float_iter);
-					fprintf(file, "    movq %s, %s\n", xmm_register_name(param_register), xmm_register_name(r));
+					const char* move_ins = is_float_64_type(ta) ? "movsd" : "movss";
+					fprintf(file, "    %s %s, %s\n", move_ins, xmm_register_name(param_register), xmm_register_name(r));
 					float_iter += 1;
 				}
 				else
@@ -513,7 +524,10 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 			{
 				return_reg = registers.get_free_xmm_register(RegisterStatusFlag_InUse);
 				if (*return_reg != 16)
-					fprintf(file, "   movq %s, %s\n", xmm_register_name(*return_reg), xmm_register_name(16));
+				{
+					const char* move_ins = is_float_64_type(return_ta) ? "movsd" : "movss";
+					fprintf(file, "   %s %s, %s\n", move_ins, xmm_register_name(*return_reg), xmm_register_name(16));
+				}
 			}
 			else
 			{
@@ -582,7 +596,22 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, ast[index].child0);
 
 		if (is_float_type(ast[ast[index].child0].type_annotation.value()))
-			fprintf(file, "    movq [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+		{
+			if (is_float_32_type(ast[ast[index].child0].type_annotation.value()))
+			{
+				// Might need to convert f64 to f32 because f32 is compatible with float literal
+				if (is_float_64_type(ast[ast[index].child1].type_annotation.value()))
+				{
+					fprintf(file, "    cvtsd2ss %s, %s\n", xmm_register_name(r), xmm_register_name(r));
+				}
+
+				fprintf(file, "    movss [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+			}
+			else
+			{
+				fprintf(file, "    movsd [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+			}
+		}
 		else
 			fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(r, data_size));
 
@@ -655,7 +684,26 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 				if (r < 16)
 					fprintf(file, "    mov %s, %s\n", register_name(0, 8), register_name(r, 8));
 				else
+				{
+					auto& func = symbol_table.functions[function_index];
+					if (!func.return_type_index.has_value())
+						internal_error("Missing return type index");
+
+					TypeAnnotation function_ret_ta;
+					function_ret_ta.special = false;
+					function_ret_ta.type_index = func.return_type_index.value();
+
+					if (is_float_32_type(function_ret_ta))
+					{
+						// Might need to convert f64 to f32 because f32 is compatible with float literal
+						if (is_float_64_type(ast[ast[index].aux.value()].type_annotation.value()))
+						{
+							fprintf(file, "    cvtsd2ss %s, %s\n", xmm_register_name(r), xmm_register_name(r));
+						}
+					}
+
 					fprintf(file, "    movq %s, %s\n", xmm_register_name(16), xmm_register_name(r));
+				}
 			}
 		}
 
@@ -801,7 +849,8 @@ void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* fi
 		if (is_float_type(ta))
 		{
 			param_register = xmm_register_for_parameter(float_iter);
-			fprintf(file, "    movq [rbp - %d], %s\n", param_offset, xmm_register_name(param_register));
+			const char* move_ins = is_float_64_type(ta) ? "movsd" : "movss";
+			fprintf(file, "    %s [rbp - %d], %s\n", move_ins, param_offset, xmm_register_name(param_register));
 			float_iter += 1;
 		}
 		else
@@ -1070,6 +1119,14 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	fprintf(file, "    mov rdi, 1\n");
 	fprintf(file, "    syscall\n");
 
+	fprintf(file, "    leave\n");
+	fprintf(file, "    ret\n");
+
+	fprintf(file, "print_float32:\n");
+	fprintf(file, "    push rbp\n");
+	fprintf(file, "    mov rbp, rsp\n");
+	fprintf(file, "    cvtss2sd xmm0, xmm0\n");
+	fprintf(file, "    call print_float\n");
 	fprintf(file, "    leave\n");
 	fprintf(file, "    ret\n");
 
