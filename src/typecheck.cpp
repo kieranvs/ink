@@ -442,17 +442,47 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 	}
 	else if (ast[index].type == AstNodeType::AddressOf)
 	{
-		type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
+		auto child_node = ast[index].child0;
+		if (ast[child_node].type == AstNodeType::Function)
+		{
+			auto& func = symbol_table.functions[ast[child_node].data_function_call.function_index];
+			auto& func_scope = symbol_table.scopes[func.scope];
 
-		auto& expr_ta = ast[ast[index].child0].type_annotation;
+			std::vector<size_t> parameter_types;
+			for (auto var_index : func.parameters)
+			{
+				auto var_type = func_scope.local_variables[var_index].type_index;
+				parameter_types.push_back(var_type);
+			}
 
-		if (expr_ta->special)
-			log_error(ast[index], "Address of literal");
+			auto type_index = symbol_table.find_matching_function_type(parameter_types, func.return_type_index);
+			if (type_index.has_value())
+			{
+				TypeAnnotation ta;
+				ta.special = false;
+				ta.type_index = type_index.value();
+				ast[index].type_annotation = ta;
+			}
+			else
+			{
+				log_error(ast[index], "Function used in expression without matching function type");
+			}
+		}
+		else
+		{
+			type_check_ast(symbol_table, ast, ast[index].child0, return_type_index);
 
-		TypeAnnotation ta;
-		ta.special = false;
-		ta.type_index = get_type_add_pointer(symbol_table, expr_ta->type_index);
-		ast[index].type_annotation = ta;
+			auto& expr_ta = ast[ast[index].child0].type_annotation;
+
+			if (expr_ta->special)
+				log_error(ast[index], "Address of literal");
+
+			TypeAnnotation ta;
+			ta.special = false;
+			ta.type_index = get_type_add_pointer(symbol_table, expr_ta->type_index);
+			ast[index].type_annotation = ta;
+		}
+
 		return;
 	}
 	else if (ast[index].type == AstNodeType::Dereference)

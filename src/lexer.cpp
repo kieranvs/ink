@@ -188,6 +188,8 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 				new_token.type = TokenType::KeywordExternal;
 			else if (identifier_string == "struct")
 				new_token.type = TokenType::KeywordStruct;
+			else if (identifier_string == "fn_type")
+				new_token.type = TokenType::KeywordFunctionType;
 			else if (identifier_string == "true")
 			{
 				new_token.type = TokenType::LiteralBool;

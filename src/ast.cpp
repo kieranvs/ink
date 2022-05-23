@@ -136,6 +136,13 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		fprintf(output, "Function call arg\n");
 		dump_ast(output, symbol_table, ast, ast[index].child0, indent + 1);
 	}
+	else if (ast[index].type == AstNodeType::Function)
+	{
+		auto func_index = ast[index].data_function_call.function_index;
+		auto& func = symbol_table.functions[func_index];
+
+		fprintf(output, "Function %s\n", func.name.c_str());
+	}
 	else if (ast[index].type == AstNodeType::If)
 	{
 		fprintf(output, "If\n");
@@ -225,6 +232,25 @@ void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_inde
 		fprintf(output, "%s=", t.name.c_str());
 		pretty_print_type(output, symbol_table, t.actual_type);
 	}
+	else if (t.type == TypeType::Function)
+	{
+		auto& function_type = symbol_table.function_types[t.function_type_index];
+
+		fprintf(output, "(");
+		bool first = true;
+		for (auto param_type : function_type.parameter_types)
+		{
+			if (!first) fprintf(output, ", ");
+			pretty_print_type(output, symbol_table, param_type);
+			first = false;
+		}
+		fprintf(output, ")");
+		if (function_type.return_type_index.has_value())
+		{
+			fprintf(output, " -> ");
+			pretty_print_type(output, symbol_table, function_type.return_type_index.value());
+		}
+	}
 	else
 		internal_error("Unhandled type type in pretty_print_type\n");
 }
@@ -268,6 +294,8 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 			fprintf(output, "  Type: Struct\n");
 		else if (t.type == TypeType::Alias)
 			fprintf(output, "  Type: Alias\n");
+		else if (t.type == TypeType::Function)
+			fprintf(output, "  Type: Function Type\n");
 		else
 			internal_error("Unhandled type type in dump_symbol_table\n");
 
@@ -369,6 +397,35 @@ std::optional<size_t> SymbolTable::find_type(const std::string& name)
 			else
 				return i;
 		}
+	}
+
+	return std::nullopt;
+}
+
+std::optional<size_t> SymbolTable::find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type)
+{
+	for (size_t type_index = 0; type_index < types.size(); type_index++)
+	{
+		bool matches = [&]()
+		{
+			auto& type = types[type_index];
+
+			if (type.type != TypeType::Function) return false;
+
+			auto& function_type = function_types[type.function_type_index];
+
+			if (function_type.parameter_types.size() != parameter_types.size()) return false;
+
+			for (size_t i = 0; i < parameter_types.size(); i++)
+				if (function_type.parameter_types[i] != parameter_types[i]) return false;
+
+			if (function_type.return_type_index != return_type) return false;
+
+			return true;
+		}();
+
+		if (matches)
+			return type_index;
 	}
 
 	return std::nullopt;

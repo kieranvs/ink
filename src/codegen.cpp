@@ -561,14 +561,27 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 	else if (ast[index].type == AstNodeType::AddressOf)
 	{
 		size_t variable_node_index = ast[index].child0;
-		if (ast[variable_node_index].type != AstNodeType::Variable && ast[variable_node_index].type != AstNodeType::Selector)
-			internal_error("AddressOf non-variable node");
 
-		auto& scope = symbol_table.scopes[ast[variable_node_index].data_variable.scope_index];
-		auto& variable = scope.local_variables[ast[variable_node_index].data_variable.variable_index];
-		int r = registers.get_free_register(RegisterStatusFlag_InUse);
-		fprintf(file, "    lea %s, [rbp - %d]\n", register_name(r, 8), variable.stack_offset);
-		return r;
+		if (ast[variable_node_index].type == AstNodeType::Variable || ast[variable_node_index].type == AstNodeType::Selector)
+		{
+			auto& scope = symbol_table.scopes[ast[variable_node_index].data_variable.scope_index];
+			auto& variable = scope.local_variables[ast[variable_node_index].data_variable.variable_index];
+
+			int r = registers.get_free_register(RegisterStatusFlag_InUse);
+			fprintf(file, "    lea %s, [rbp - %d]\n", register_name(r, 8), variable.stack_offset);
+			return r;
+		}
+		else if (ast[variable_node_index].type == AstNodeType::Function)
+		{
+			auto func_index = ast[variable_node_index].data_function_call.function_index;
+			auto& func = symbol_table.functions[func_index];
+
+			int r = registers.get_free_register(RegisterStatusFlag_InUse);
+			fprintf(file, "    mov %s, qword %s\n", register_name(r, 8), func.name.c_str());
+			return r;
+		}
+		else
+			internal_error("AddressOf non-variable node");
 	}
 	else if (ast[index].type == AstNodeType::Dereference)
 	{

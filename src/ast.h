@@ -45,6 +45,7 @@ enum class AstNodeType
 	FunctionDefinition,
 	FunctionCall,
 	FunctionCallArg,
+	Function,
 	If,
 	While,
 	For,
@@ -137,12 +138,13 @@ struct Variable
 	size_t type_index;
 };
 
-enum TypeType
+enum class TypeType
 {
 	Intrinsic,
 	Pointer,
 	Struct,
-	Alias
+	Alias,
+	Function
 };
 
 struct Type
@@ -161,6 +163,9 @@ struct Type
 
 	// Set for alias
 	size_t actual_type;
+
+	// Set for function types
+	size_t function_type_index;
 };
 
 struct SymbolTable;
@@ -186,6 +191,12 @@ struct Function
 	bool is_external = false;
 };
 
+struct FunctionType
+{
+	std::vector<size_t> parameter_types;
+	std::optional<size_t> return_type_index;
+};
+
 struct ConstantString
 {
 	ConstantString(const std::string& s) : str(s) {}
@@ -206,6 +217,7 @@ struct SymbolTable
 	std::vector<Function> functions;
 	std::vector<Scope> scopes;
 	std::vector<Type> types;
+	std::vector<FunctionType> function_types;
 	std::vector<ConstantString> constant_strings;
 	std::vector<double> constant_floats;
 	std::vector<LinkerPath> linker_paths;
@@ -213,8 +225,11 @@ struct SymbolTable
 	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
+	std::optional<size_t> find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type);
+
 	size_t find_add_string(const std::string& str);
 	size_t find_add_float(double value);
+
 	void add_linker_path(const std::string& path, bool is_macos_framework);
 };
 

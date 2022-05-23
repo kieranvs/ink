@@ -286,33 +286,48 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 				auto& next_token = parser.get();
 				auto& function_ref = symbol_table.functions[function.value()];
 
-				auto func_call_node = ast.make(AstNodeType::FunctionCall, next_token);
-				ast[func_call_node].data_function_call.function_index = function.value();
-				expr_nodes.push(func_call_node);
-
-				parser.get_if(TokenType::ParenthesisLeft, "Missing argument list");
-
-				size_t prev_arg_node;
-				for (int i = 0; i < function_ref.parameters.size(); i++)
+				// It's a function call
+				if (parser.next_is(TokenType::ParenthesisLeft))
 				{
-					auto end_token = (i == function_ref.parameters.size() - 1) ? TokenType::ParenthesisRight : TokenType::Comma;
-					auto& token = parser.peek();
-					auto arg_expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
-					auto arg_node = ast.make(AstNodeType::FunctionCallArg, token);
-					ast[arg_node].child0 = arg_expr_node;
+					auto func_call_node = ast.make(AstNodeType::FunctionCall, next_token);
+					ast[func_call_node].data_function_call.function_index = function.value();
+					expr_nodes.push(func_call_node);
 
-					if (i == 0)
-						ast[func_call_node].child0 = arg_node;
-					else
-						ast[prev_arg_node].next = arg_node;
+					parser.get_if(TokenType::ParenthesisLeft, "Missing argument list");
 
-					prev_arg_node = arg_node;
+					size_t prev_arg_node;
+					for (int i = 0; i < function_ref.parameters.size(); i++)
+					{
+						auto end_token = (i == function_ref.parameters.size() - 1) ? TokenType::ParenthesisRight : TokenType::Comma;
+						auto& token = parser.peek();
+						auto arg_expr_node = parse_expression(parser, ast, symbol_table, scope_index, end_token);
+						auto arg_node = ast.make(AstNodeType::FunctionCallArg, token);
+						ast[arg_node].child0 = arg_expr_node;
+
+						if (i == 0)
+							ast[func_call_node].child0 = arg_node;
+						else
+							ast[prev_arg_node].next = arg_node;
+
+						prev_arg_node = arg_node;
+					}
+
+					// parse_expression consumes the end token while processing
+					// the last parameter
+					if (function_ref.parameters.size() == 0)
+						parser.get_if(TokenType::ParenthesisRight, "Expected )");
 				}
+				// It's a reference to the function itself
+				else
+				{
+					auto func_node = ast.make(AstNodeType::Function, next_token);
+					ast[func_node].data_function_call.function_index = function.value();
 
-				// parse_expression consumes the end token while processing
-				// the last parameter
-				if (function_ref.parameters.size() == 0)
-					parser.get_if(TokenType::ParenthesisRight, "Expected )");
+					auto address_of_node = ast.make(AstNodeType::AddressOf, next_token);
+					ast[address_of_node].child0 = func_node;
+
+					expr_nodes.push(address_of_node);
+				}
 			}
 			else
 			{
@@ -719,6 +734,83 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 	func.ast[func_node].data_function_definition.function_index = func_index;
 }
 
+void parse_function_type(Parser& parser, SymbolTable& symbol_table)
+{
+	parser.get_if(TokenType::KeywordFunctionType, "Invalid function type declaration");
+
+	auto& ident_token = parser.get_if(TokenType::Identifier, "Expected function type name");
+	parser.get_if(TokenType::Assign, "Expected =");
+	parser.get_if(TokenType::ParenthesisLeft, "Expected (");
+
+	if (symbol_table.find_type(ident_token.data_str) != std::nullopt)
+	log_error(ident_token, "Redefined type");
+
+	std::vector<size_t> parameter_types;
+	std::optional<size_t> return_type;
+
+	// Parse parameter list
+	while (true)
+	{
+		if (!parser.has_more())
+			log_error(ident_token, "Invalid function declaration");
+
+		if (next_matches_type(parser, symbol_table))
+		{
+			auto type_index = parse_type(parser, symbol_table);
+			parameter_types.push_back(type_index);
+
+			if (parser.next_is(TokenType::Comma))
+				parser.get();
+			else if (parser.next_is(TokenType::ParenthesisRight))
+			{
+				parser.get();
+				break;
+			}
+		}
+		else if (parser.next_is(TokenType::ParenthesisRight))
+		{
+			parser.get();
+			break;
+		}
+		else
+		{
+			log_error(parser.peek(), "Unexpected token in function declaration");
+		}
+	}
+
+	if (parser.next_is(TokenType::Colon))
+	{
+		parser.get();
+		return_type = parse_type(parser, symbol_table);
+	}
+
+	// Check if there is an existing function type which matches to maintain uniqueness of
+	// function types, and make a new one only if necessary
+	auto type_index = symbol_table.find_matching_function_type(parameter_types, return_type);
+	if (!type_index.has_value())
+	{
+		symbol_table.types.emplace_back();
+		auto& type = symbol_table.types.back();
+		type.type = TypeType::Function;
+		type.data_size = 8;
+		type.function_type_index = symbol_table.function_types.size();
+
+		symbol_table.function_types.emplace_back();
+		FunctionType& function_type = symbol_table.function_types.back();
+		function_type.parameter_types = std::move(parameter_types);
+		function_type.return_type_index = return_type;
+
+		type_index = symbol_table.types.size() - 1;
+	}
+
+	// Make an alias to the actual function type
+	symbol_table.types.emplace_back();
+	auto& type = symbol_table.types.back();
+	type.type = TypeType::Alias;
+	type.name = ident_token.data_str;
+	type.actual_type = type_index.value();
+}
+
 void parse_struct(Parser& parser, SymbolTable& symbol_table)
 {
 	parser.get_if(TokenType::KeywordStruct, "Invalid struct declaration");
@@ -781,6 +873,8 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 			parse_struct(parser, symbol_table);
 		else if (parser.next_is(TokenType::KeywordExternal))
 			parse_function(parser, symbol_table, true);
+		else if (parser.next_is(TokenType::KeywordFunctionType))
+			parse_function_type(parser, symbol_table);
 		else if (parser.next_is(TokenType::DirectiveLink) || parser.next_is(TokenType::DirectiveLinkFramework))
 		{
 			auto& link_token = parser.get();
