@@ -13,7 +13,7 @@ void set_current_file(const char* src)
 	file_source = src;
 }
 
-void internal_error(const char* message)
+[[noreturn]] void internal_error(const char* message)
 {
 	delete_exit_files();
 
@@ -21,7 +21,7 @@ void internal_error(const char* message)
 	exit(1);
 }
 
-void log_general_error(const char* message)
+[[noreturn]] void log_general_error(const char* message)
 {
 	delete_exit_files();
 
@@ -68,7 +68,7 @@ void log_error(const SourceLocation& location)
 	printf("\n");
 }
 
-void log_error(const Token& token, const char* message)
+[[noreturn]] void log_error(const Token& token, const char* message)
 {
 	delete_exit_files();
 
@@ -78,7 +78,7 @@ void log_error(const Token& token, const char* message)
 	exit(101);
 }
 
-void log_error(const AstNode& node, const char* message)
+[[noreturn]] void log_error(const AstNode& node, const char* message)
 {
 	delete_exit_files();
 
