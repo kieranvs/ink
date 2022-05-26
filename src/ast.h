@@ -37,6 +37,7 @@ enum class AstNodeType
 	BinLogicalAnd,
 	BinLogicalOr,
 	Variable,
+	VariableGlobal,
 	Selector,
 	Assignment,
 	ZeroInitialise,
@@ -212,17 +213,25 @@ struct LinkerPath
 	bool is_macos_framework;
 };
 
+struct VariableFindResult
+{
+	bool is_global;
+	size_t scope_index;
+	size_t variable_index;
+};
+
 struct SymbolTable
 {
 	std::vector<Function> functions;
 	std::vector<Scope> scopes;
+	std::vector<Variable> global_variables;
 	std::vector<Type> types;
 	std::vector<FunctionType> function_types;
 	std::vector<ConstantString> constant_strings;
 	std::vector<double> constant_floats;
 	std::vector<LinkerPath> linker_paths;
 
-	std::optional<std::pair<size_t, size_t>> find_variable(size_t scope_index, const std::string& name);
+	std::optional<VariableFindResult> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
 	std::optional<size_t> find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type);

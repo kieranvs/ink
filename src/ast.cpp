@@ -70,6 +70,11 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		auto& variable = symbol_table.scopes[ast[index].data_variable.scope_index].local_variables[ast[index].data_variable.variable_index];
 		fprintf(output, "Variable %s\n", variable.name.c_str());
 	}
+	else if (ast[index].type == AstNodeType::VariableGlobal)
+	{
+		auto& variable = symbol_table.global_variables[ast[index].data_variable.variable_index];
+		fprintf(output, "Global Variable %s\n", variable.name.c_str());
+	}
 	else if (ast[index].type == AstNodeType::Selector)
 	{
 		auto& variable = symbol_table.scopes[ast[index].data_variable.scope_index].local_variables[ast[index].data_variable.variable_index];
@@ -308,6 +313,14 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 		}
 	}
 
+	fprintf(output, "\n------ Global Variables ------\n");
+	for (auto& variable : symbol_table.global_variables)
+	{
+		fprintf(output, "%s (type=", variable.name.c_str());
+		pretty_print_type(output, symbol_table, variable.type_index);
+		fprintf(output, ")\n");
+	}
+
 	fprintf(output, "\n------ Functions ------\n");
 	for (auto& func : symbol_table.functions)
 	{
@@ -337,17 +350,37 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 
 }
 
-std::optional<std::pair<size_t, size_t>> SymbolTable::find_variable(size_t scope_index, const std::string& name)
+std::optional<VariableFindResult> SymbolTable::find_variable(size_t scope_index, const std::string& name)
 {
 	auto& scope = scopes[scope_index];
 
 	for (size_t i = 0; i < scope.local_variables.size(); i++)
 	{
-		if (scope.local_variables[i].name == name) return std::make_pair(scope_index, i);
+		if (scope.local_variables[i].name == name)
+		{
+			VariableFindResult vfr;
+			vfr.is_global = false;
+			vfr.scope_index = scope_index;
+			vfr.variable_index = i;
+			return vfr;
+		}
 	}
 
 	if (scope.parent.has_value())
 		return find_variable(scope.parent.value(), name);
+	else
+	{
+		for (size_t i = 0; i < global_variables.size(); i++)
+		{
+			if (global_variables[i].name == name)
+			{
+				VariableFindResult vfr;
+				vfr.is_global = true;
+				vfr.variable_index = i;
+				return vfr;
+			}
+		}
+	}
 
 	return std::nullopt;
 }

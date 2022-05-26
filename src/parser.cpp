@@ -51,23 +51,24 @@ bool next_matches_variable(Parser& parser, SymbolTable& symbol_table, size_t sco
 size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t init_scope_index)
 {
 	auto& ident_token = parser.get();
-	auto variable_location = symbol_table.find_variable(init_scope_index, ident_token.data_str);
+	auto vfr = symbol_table.find_variable(init_scope_index, ident_token.data_str);
 
-	if (!variable_location.has_value())
+	if (!vfr.has_value())
 		log_error(ident_token, "Undefined variable");
 
-	auto variable_index = variable_location.value().second;
-	auto scope_index = variable_location.value().first;
+	auto variable_location = vfr.value();
 
-	auto node = ast.make(AstNodeType::Variable, ident_token);
-	ast[node].data_variable.variable_index = variable_index;
-	ast[node].data_variable.scope_index = scope_index;
+	auto node = ast.make(variable_location.is_global ? AstNodeType::VariableGlobal :AstNodeType::Variable, ident_token);
+	ast[node].data_variable.variable_index = variable_location.variable_index;
+	if (!variable_location.is_global) ast[node].data_variable.scope_index = variable_location.scope_index;
 
 	while (parser.next_is(TokenType::Period))
 	{
 		parser.get(); // period
 
-		auto& parent_variable = symbol_table.scopes[scope_index].local_variables[variable_index];
+		auto& parent_variable = variable_location.is_global
+			? symbol_table.global_variables[variable_location.variable_index]
+			: symbol_table.scopes[variable_location.scope_index].local_variables[variable_location.variable_index];
 		auto& parent_variable_type = symbol_table.types[parent_variable.type_index];
 
 		if (parent_variable_type.type != TypeType::Struct)
@@ -80,12 +81,11 @@ size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_
 		if (!field_location.has_value())
 			log_error(ident_token, "Couldn't find field");
 
-		variable_index = field_location.value().second;
-		scope_index = field_location.value().first;
+		variable_location = field_location.value();
 
 		auto selector_node = ast.make(AstNodeType::Selector, ident_token);
-		ast[selector_node].data_variable.variable_index = field_location.value().second;
-		ast[selector_node].data_variable.scope_index = field_location.value().first;
+		ast[selector_node].data_variable.variable_index = variable_location.variable_index;
+		ast[selector_node].data_variable.scope_index = variable_location.scope_index;;
 		ast[selector_node].child0 = node;
 
 		node = selector_node;
@@ -881,6 +881,17 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 			auto& path_token = parser.get_if(TokenType::LiteralString, "Expected linker path");
 
 			symbol_table.add_linker_path(path_token.data_str, link_token.type == TokenType::DirectiveLinkFramework);
+		}
+		else if (next_matches_type(parser, symbol_table))
+		{
+			auto type_index = parse_type(parser, symbol_table);
+
+			auto& ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
+			parser.get_if(TokenType::StatementEnd, "Expected ;");
+
+			auto& var = symbol_table.global_variables.emplace_back();
+			var.name = ident_token.data_str;
+			var.type_index = type_index;
 		}
 		else
 			log_error(parser.peek(), "Unexpected token at top level");

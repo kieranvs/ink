@@ -444,6 +444,28 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		registers.register_status[r].stack_size = data_size;
 		return r;
 	}
+	else if (ast[index].type == AstNodeType::VariableGlobal)
+	{
+		int r;
+
+		auto variable_index = ast[index].data_variable.variable_index;
+		auto& variable = symbol_table.global_variables[variable_index];
+		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = type.data_size;
+
+		if (is_float_type(ast[index].type_annotation.value()))
+		{
+			r = registers.get_free_xmm_register(RegisterStatusFlag_InUse);
+			const char* move_ins = is_float_64_type(ast[index].type_annotation.value()) ? "movsd" : "movss";
+			fprintf(file, "    %s %s, [GVAR%zu]\n", move_ins, xmm_register_name(r), variable_index);
+		}
+		else
+		{
+			r = registers.get_free_register(RegisterStatusFlag_InUse);
+			fprintf(file, "    mov %s, [GVAR%zu]\n", register_name(r, data_size), variable_index);
+		}
+		return r;
+	}
 	else if (ast[index].type == AstNodeType::FunctionCall)
 	{
 		auto func_index = ast[index].data_function_call.function_index;
@@ -606,40 +628,75 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 	{
 		int r = codegen_expr(ast, symbol_table, file, ast[index].child1, registers);
 
-		auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, ast[index].child0);
-
-		if (is_float_type(ast[ast[index].child0].type_annotation.value()))
+		auto& var_node = ast[ast[index].child0];
+		if (var_node.type == AstNodeType::Variable || var_node.type == AstNodeType::Selector)
 		{
-			if (is_float_32_type(ast[ast[index].child0].type_annotation.value()))
-			{
-				// Might need to convert f64 to f32 because f32 is compatible with float literal
-				if (is_float_64_type(ast[ast[index].child1].type_annotation.value()))
-				{
-					fprintf(file, "    cvtsd2ss %s, %s\n", xmm_register_name(r), xmm_register_name(r));
-				}
+			auto [stack_offset, data_size] = compute_stack_offset_and_size(ast, symbol_table, ast[index].child0);
 
-				fprintf(file, "    movss [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+			if (is_float_type(ast[ast[index].child0].type_annotation.value()))
+			{
+				if (is_float_32_type(ast[ast[index].child0].type_annotation.value()))
+				{
+					// Might need to convert f64 to f32 because f32 is compatible with float literal
+					if (is_float_64_type(ast[ast[index].child1].type_annotation.value()))
+					{
+						fprintf(file, "    cvtsd2ss %s, %s\n", xmm_register_name(r), xmm_register_name(r));
+					}
+
+					fprintf(file, "    movss [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+				}
+				else
+				{
+					fprintf(file, "    movsd [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+				}
 			}
 			else
+				fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(r, data_size));
+
+			for (int i = 0; i < 32; i++)
 			{
-				fprintf(file, "    movsd [rbp - %d], %s\n", stack_offset, xmm_register_name(r));
+				if (registers.register_status[i].has_flag(RegisterStatusFlag_ContainsVariable)
+					&& registers.register_status[i].stack_offset == stack_offset)
+				{
+					registers.register_status[i].unset_flag(RegisterStatusFlag_ContainsVariable);
+				}
 			}
+
+			registers.register_status[r].set_all_flags(RegisterStatusFlag_ContainsVariable);
+			registers.register_status[r].stack_offset = stack_offset;
+			registers.register_status[r].stack_size = data_size;
+		}
+		else if (var_node.type == AstNodeType::VariableGlobal)
+		{
+			auto variable_index = var_node.data_variable.variable_index;
+			auto& variable = symbol_table.global_variables[variable_index];
+			auto& type = symbol_table.types[variable.type_index];
+			auto data_size = type.data_size;
+
+			if (is_float_type(ast[ast[index].child0].type_annotation.value()))
+			{
+				if (is_float_32_type(ast[ast[index].child0].type_annotation.value()))
+				{
+					// Might need to convert f64 to f32 because f32 is compatible with float literal
+					if (is_float_64_type(ast[ast[index].child1].type_annotation.value()))
+					{
+						fprintf(file, "    cvtsd2ss %s, %s\n", xmm_register_name(r), xmm_register_name(r));
+					}
+
+					fprintf(file, "    movss [GVAR%zu], %s\n", variable_index, xmm_register_name(r));
+				}
+				else
+				{
+					fprintf(file, "    movsd [GVAR%zu], %s\n", variable_index, xmm_register_name(r));
+				}
+			}
+			else
+				fprintf(file, "    mov [GVAR%zu], %s\n", variable_index, register_name(r, data_size));
+
+			registers.register_status[r].set_all_flags(0);
 		}
 		else
-			fprintf(file, "    mov [rbp - %d], %s\n", stack_offset, register_name(r, data_size));
-
-		for (int i = 0; i < 32; i++)
-		{
-			if (registers.register_status[i].has_flag(RegisterStatusFlag_ContainsVariable)
-				&& registers.register_status[i].stack_offset == stack_offset)
-			{
-				registers.register_status[i].unset_flag(RegisterStatusFlag_ContainsVariable);
-			}
-		}
-
-		registers.register_status[r].set_all_flags(RegisterStatusFlag_ContainsVariable);
-		registers.register_status[r].stack_offset = stack_offset;
-		registers.register_status[r].stack_size = data_size;
+			internal_error("Unhandled AstNodeType in codegen (assignment)");
 
 		if (ast[index].next.has_value())
 			codegen_statement(ast, symbol_table, file, ast[index].next.value(), function_index, registers);
@@ -1157,5 +1214,14 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 		char flt_str[64];
 		snprintf(flt_str, 64, "%f", symbol_table.constant_floats[i]);
 		fprintf(file, "LFLT%zu: dq %s\n", i, flt_str);
+	}
+
+	fprintf(file, "    section .bss\n");
+	for (size_t i = 0; i < symbol_table.global_variables.size(); i++)
+	{
+		auto& variable = symbol_table.global_variables[i];
+		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = type.data_size;
+		fprintf(file, "GVAR%zu: resb %d\n", i, data_size);
 	}
 }
