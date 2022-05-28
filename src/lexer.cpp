@@ -1,6 +1,6 @@
 #include "lexer.h"
 
-#include "utils.h"
+#include "errors.h"
 
 #include <cstring>
 
@@ -119,6 +119,7 @@ void lex(std::vector<Token>& tokens, Lexer& lexer)
 		// Patterns which do produce tokens next
 		tokens.emplace_back();
 		Token& new_token = tokens.back();
+		new_token.location.source_file = lexer.source_file;
 		new_token.location.start_line = lexer.current_line;
 		new_token.location.start_col = lexer.current_col;
 		new_token.location.end_line = lexer.current_line;

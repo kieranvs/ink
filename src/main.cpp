@@ -3,6 +3,7 @@
 #include "parser.h"
 #include "codegen.h"
 #include "typecheck.h"
+#include "errors.h"
 #include "utils.h"
 
 #include <stdio.h>
@@ -114,7 +115,7 @@ int main(int argc, char** argv)
     set_current_file(str.data());
 
 	std::vector<Token> tokens;
-	Lexer lexer(str);
+	Lexer lexer(str, options.input_file.value().c_str());
 
 	lex(tokens, lexer);
 

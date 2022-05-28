@@ -14,6 +14,11 @@ struct TypeAnnotation
 {
 	size_t type_index;
 	bool special;
+
+	constexpr static size_t special_type_index_literal_int = 0;
+	constexpr static size_t special_type_index_literal_bool = 1;
+	constexpr static size_t special_type_index_literal_char = 2;
+	constexpr static size_t special_type_index_literal_float = 3;
 };
 
 enum class AstNodeType
@@ -242,6 +247,7 @@ struct SymbolTable
 	void add_linker_path(const std::string& path, bool is_macos_framework);
 };
 
+void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_index);
 void dump_symbol_table(FILE* output, SymbolTable& symbol_table);
 
 size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type);

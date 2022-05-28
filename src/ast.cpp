@@ -1,6 +1,6 @@
 #include "ast.h"
 
-#include "utils.h"
+#include "errors.h"
 
 #include <stdio.h>
 

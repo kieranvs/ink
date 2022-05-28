@@ -1,6 +1,6 @@
 #include "codegen.h"
 #include "typecheck.h"
-
+#include "errors.h"
 #include "utils.h"
 
 const char* register_name_data[] =
@@ -956,7 +956,13 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 				log_error(func.ast[func.ast_node_root], "Main function missing return type");
 
 			if (symbol_table.types[func.return_type_index.value()].name != "u64")
+			{
+				TypeAnnotation return_ta;
+				return_ta.special = false;
+				return_ta.type_index = func.return_type_index.value();
+				log_note_type(return_ta, symbol_table, "function return");
 				log_error(func.ast[func.ast_node_root], "Main function defined with wrong return type");
+			}
 
 			main_defined = true;
 			break;

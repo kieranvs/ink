@@ -1,11 +1,7 @@
 #include "typecheck.h"
 
-#include "utils.h"
+#include "errors.h"
 
-size_t special_type_index_literal_int = 0;
-size_t special_type_index_literal_bool = 1;
-size_t special_type_index_literal_char = 2;
-size_t special_type_index_literal_float = 3;
 size_t intrinsic_type_index_int;
 size_t intrinsic_type_index_bool;
 size_t intrinsic_type_index_char;
@@ -14,13 +10,13 @@ size_t intrinsic_type_index_f64;
 
 bool special_matches(size_t special, size_t actual)
 {
-	if (special == special_type_index_literal_int)
+	if (special == TypeAnnotation::special_type_index_literal_int)
 		return actual == intrinsic_type_index_int || actual == intrinsic_type_index_char;
-	else if (special == special_type_index_literal_bool)
+	else if (special == TypeAnnotation::special_type_index_literal_bool)
 		return actual == intrinsic_type_index_bool;
-	else if (special == special_type_index_literal_char)
+	else if (special == TypeAnnotation::special_type_index_literal_char)
 		return actual == intrinsic_type_index_char;
-	else if (special == special_type_index_literal_float)
+	else if (special == TypeAnnotation::special_type_index_literal_float)
 		return actual == intrinsic_type_index_f32 || actual == intrinsic_type_index_f64;
 
 	return false;
@@ -76,7 +72,7 @@ bool can_combine(std::optional<TypeAnnotation>& lhs, std::optional<TypeAnnotatio
 bool is_bool_type(TypeAnnotation& ta)
 {
 	if (ta.special)
-		return ta.type_index == special_type_index_literal_bool;
+		return ta.type_index == TypeAnnotation::special_type_index_literal_bool;
 	else
 		return ta.type_index == intrinsic_type_index_bool;
 }
@@ -84,9 +80,9 @@ bool is_bool_type(TypeAnnotation& ta)
 bool is_number_type(TypeAnnotation& ta)
 {
 	if (ta.special)
-		return ta.type_index == special_type_index_literal_int
-			|| ta.type_index == special_type_index_literal_char
-			|| ta.type_index == special_type_index_literal_float;
+		return ta.type_index == TypeAnnotation::special_type_index_literal_int
+			|| ta.type_index == TypeAnnotation::special_type_index_literal_char
+			|| ta.type_index == TypeAnnotation::special_type_index_literal_float;
 	else
 		return ta.type_index == intrinsic_type_index_int
 			|| ta.type_index == intrinsic_type_index_char
@@ -97,7 +93,7 @@ bool is_number_type(TypeAnnotation& ta)
 bool is_float_type(TypeAnnotation& ta)
 {
 	if (ta.special)
-		return ta.type_index == special_type_index_literal_float;
+		return ta.type_index == TypeAnnotation::special_type_index_literal_float;
 	else
 		return ta.type_index == intrinsic_type_index_f32
 			|| ta.type_index == intrinsic_type_index_f64;
@@ -111,7 +107,7 @@ bool is_float_32_type(TypeAnnotation& ta)
 bool is_float_64_type(TypeAnnotation& ta)
 {
 	if (ta.special)
-		return ta.type_index == special_type_index_literal_float;
+		return ta.type_index == TypeAnnotation::special_type_index_literal_float;
 	else
 		return ta.type_index == intrinsic_type_index_f64;
 }
@@ -121,7 +117,7 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 	if (ast[index].type == AstNodeType::LiteralInt)
 	{
 		TypeAnnotation ta;
-		ta.type_index = special_type_index_literal_int;
+		ta.type_index = TypeAnnotation::special_type_index_literal_int;
 		ta.special = true;
 		ast[index].type_annotation = ta;
 		return;
@@ -129,7 +125,7 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 	else if (ast[index].type == AstNodeType::LiteralFloat)
 	{
 		TypeAnnotation ta;
-		ta.type_index = special_type_index_literal_float;
+		ta.type_index = TypeAnnotation::special_type_index_literal_float;
 		ta.special = true;
 		ast[index].type_annotation = ta;
 		return;
@@ -137,7 +133,7 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 	else if (ast[index].type == AstNodeType::LiteralBool)
 	{
 		TypeAnnotation ta;
-		ta.type_index = special_type_index_literal_bool;
+		ta.type_index = TypeAnnotation::special_type_index_literal_bool;
 		ta.special = true;
 		ast[index].type_annotation = ta;
 		return;
@@ -145,7 +141,7 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 	else if (ast[index].type == AstNodeType::LiteralChar)
 	{
 		TypeAnnotation ta;
-		ta.type_index = special_type_index_literal_char;
+		ta.type_index = TypeAnnotation::special_type_index_literal_char;
 		ta.special = true;
 		ast[index].type_annotation = ta;
 		return;
@@ -171,14 +167,26 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		auto& rhs_ta = ast[ast[index].child1].type_annotation;
 
 		if (!lhs_ta.has_value() || !is_number_type(lhs_ta.value()))
+		{
+			if (lhs_ta.has_value())
+				log_note_type(*lhs_ta, symbol_table, "expression");
 			log_error(ast[ast[index].child0], "Non number type");
+		}
 
 		if (!rhs_ta.has_value() || !is_number_type(rhs_ta.value()))
+		{
+			if (rhs_ta.has_value())
+				log_note_type(*rhs_ta, symbol_table, "expression");
 			log_error(ast[ast[index].child1], "Non number type");
+		}
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
+		{
+			log_note_type(*lhs_ta, symbol_table, "left");
+			log_note_type(*rhs_ta, symbol_table, "right");
 			log_error(ast[index], "Type mismatch");
+		}
 
 		ast[index].type_annotation = expr_ta;
 		return;
@@ -204,15 +212,27 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		  )
 		{
 			if (!lhs_ta.has_value() || !is_number_type(lhs_ta.value()))
+			{
+				if (lhs_ta.has_value())
+					log_note_type(*lhs_ta, symbol_table, "expression");
 				log_error(ast[ast[index].child0], "Non number type");
+			}
 
 			if (!rhs_ta.has_value() || !is_number_type(rhs_ta.value()))
+			{
+				if (rhs_ta.has_value())
+					log_note_type(*rhs_ta, symbol_table, "expression");
 				log_error(ast[ast[index].child1], "Non number type");
+			}
 		}
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
+		{
+			log_note_type(*lhs_ta, symbol_table, "left");
+			log_note_type(*rhs_ta, symbol_table, "right");
 			log_error(ast[index], "Type mismatch");
+		}
 
 		// Comparison makes bool
 		expr_ta.special = false;
@@ -232,14 +252,26 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		auto& rhs_ta = ast[ast[index].child1].type_annotation;
 
 		if (!lhs_ta.has_value() || !is_bool_type(lhs_ta.value()))
+		{
+			if (lhs_ta.has_value())
+				log_note_type(*lhs_ta, symbol_table, "expression");
 			log_error(ast[ast[index].child0], "Non bool type");
+		}
 
 		if (!rhs_ta.has_value() || !is_bool_type(rhs_ta.value()))
+		{
+			if (rhs_ta.has_value())
+				log_note_type(*rhs_ta, symbol_table, "expression");
 			log_error(ast[ast[index].child1], "Non bool type");
+		}
 
 		TypeAnnotation expr_ta;
 		if (!can_combine(lhs_ta, rhs_ta, expr_ta))
+		{
+			log_note_type(*lhs_ta, symbol_table, "left");
+			log_note_type(*rhs_ta, symbol_table, "right");
 			log_error(ast[index], "Type mismatch");
+		}
 
 		ast[index].type_annotation = expr_ta;
 		return;
@@ -288,7 +320,11 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		auto& expr_ta = ast[ast[index].child1].type_annotation;
 
 		if (!variable_ta.has_value() || !expr_ta.has_value() || !can_assign(variable_ta.value(), expr_ta.value()))
+		{
+			log_note_type(ast[ast[index].child0], symbol_table, "left");
+			log_note_type(ast[ast[index].child1], symbol_table, "right");
 			log_error(ast[index], "Assignment to incompatible type");
+		}
 		
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -319,7 +355,11 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 			return_ta.special = false;
 
 			if (!expr_ta.has_value() || !can_assign(return_ta, expr_ta.value()))
+			{
+				log_note_type(ast[ast[index].aux.value()], symbol_table, "expression");
+				log_note_type(return_ta, symbol_table, "function return");
 				log_error(ast[ast[index].aux.value()], "Mismatch with function return type");
+			}
 		}
 		else
 		{
@@ -363,7 +403,12 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 				variable_ta.special = false;
 
 				if (!expr_ta.has_value() || !can_assign(variable_ta, expr_ta.value()))
+				{
+					log_note_type(variable_ta, symbol_table, "argument");
+					if (expr_ta.has_value())
+						log_note_type(*expr_ta, symbol_table, "expression");
 					log_error(ast[current_arg_node], "Argument has incompatible type");
+				}
 				
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
 			}
@@ -399,7 +444,11 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		bool_ta.type_index = intrinsic_type_index_bool;
 
 		if (!cond_ta.has_value() || !can_assign(bool_ta, cond_ta.value()))
+		{
+			if (cond_ta.has_value())
+				log_note_type(*cond_ta, symbol_table, "condition");
 			log_error(ast[ast[index].child0], "Condition doesn't match type bool");
+		}
 
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -418,7 +467,11 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		bool_ta.type_index = intrinsic_type_index_bool;
 
 		if (!cond_ta.has_value() || !can_assign(bool_ta, cond_ta.value()))
+		{
+			if (cond_ta.has_value())
+				log_note_type(*cond_ta, symbol_table, "condition");
 			log_error(ast[ast[index].child0], "Condition doesn't match type bool");
+		}
 
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -444,7 +497,11 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		bool_ta.type_index = intrinsic_type_index_bool;
 
 		if (!cond_ta.has_value() || !can_assign(bool_ta, cond_ta.value()))
+		{
+			if (cond_ta.has_value())
+				log_note_type(*cond_ta, symbol_table, "condition");
 			log_error(ast[cond_node], "Condition doesn't match type bool");
+		}
 
 		if (ast[index].next.has_value())
 			type_check_ast(symbol_table, ast, ast[index].next.value(), return_type_index);
@@ -506,7 +563,10 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 			log_error(ast[index], "Dereference of literal");
 
 		if (symbol_table.types[expr_ta->type_index].type != TypeType::Pointer)
+		{
+			log_note_type(*expr_ta, symbol_table, "expression");
 			log_error(ast[index], "Dereference of non-pointer");
+		}
 
 		TypeAnnotation ta;
 		ta.special = false;

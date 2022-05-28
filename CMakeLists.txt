@@ -10,6 +10,7 @@ add_executable(
 	compiler
 	src/ast.cpp
 	src/codegen.cpp
+	src/errors.cpp
 	src/lexer.cpp
 	src/main.cpp
 	src/parser.cpp

@@ -1,6 +1,6 @@
 #include "parser.h"
 
-#include "utils.h"
+#include "errors.h"
 
 #include <stack>
 
@@ -62,6 +62,7 @@ size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_
 	ast[node].data_variable.variable_index = variable_location.variable_index;
 	if (!variable_location.is_global) ast[node].data_variable.scope_index = variable_location.scope_index;
 
+	const Token* prev_ident_token = &ident_token;
 	while (parser.next_is(TokenType::Period))
 	{
 		parser.get(); // period
@@ -72,14 +73,29 @@ size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_
 		auto& parent_variable_type = symbol_table.types[parent_variable.type_index];
 
 		if (parent_variable_type.type != TypeType::Struct)
-			log_error(ident_token, "Not a struct");
+		{
+			TypeAnnotation ta;
+			ta.special = false;
+			ta.type_index = parent_variable.type_index;
+
+			log_note_type(ta, symbol_table, "expression");
+			log_error(*prev_ident_token, "Not a struct");
+		}
 
 		auto& ident_token = parser.get_if(TokenType::Identifier, "Expected struct field");
+		prev_ident_token = &ident_token;
 
 		auto field_location = symbol_table.find_variable(parent_variable_type.scope, ident_token.data_str);
 
 		if (!field_location.has_value())
+		{
+			TypeAnnotation ta;
+			ta.special = false;
+			ta.type_index = parent_variable.type_index;
+
+			log_note_type(ta, symbol_table, "parent");
 			log_error(ident_token, "Couldn't find field");
+		}
 
 		variable_location = field_location.value();
 
