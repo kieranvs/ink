@@ -990,6 +990,9 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 		exit_syscall = "0x2000001";
 	}
 
+	if (get_platform() == Platform::MacOS)
+		fprintf(file, "default rel\n");
+
 	if (!is_libc_mode)
 		fprintf(file, "    global    %s\n", entry_point_name);
 	else
