@@ -909,6 +909,13 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 			var.name = ident_token.data_str;
 			var.type_index = type_index;
 		}
+		else if (parser.next_is(TokenType::DirectiveInclude, TokenType::LiteralString))
+		{
+			// Includes are already handled before parsing, so
+			// don't need to do anything
+			parser.get();
+			parser.get();
+		}
 		else
 			log_error(parser.peek(), "Unexpected token at top level");
 	}

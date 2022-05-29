@@ -1,4 +1,5 @@
 #include "errors.h"
+#include "file_table.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -12,8 +13,6 @@
 #define CONSOLE_CYN  "\x1B[36m"
 #define CONSOLE_WHT  "\x1B[37m"
 
-const char* file_source = nullptr;
-
 std::vector<std::string> files_to_delete_at_exit;
 
 struct NoteData
@@ -23,11 +22,6 @@ struct NoteData
 	const char* label;
 };
 std::vector<NoteData> notes_to_print;
-
-void set_current_file(const char* src)
-{
-	file_source = src;
-}
 
 [[noreturn]] void internal_error(const char* message)
 {
@@ -49,7 +43,7 @@ void log_error(const SourceLocation& location, const char* message)
 {
 	size_t current_line = 1;
 	size_t current_col = 1;
-	const char* current_ptr = file_source;
+	const char* current_ptr = file_table[location.source_file].contents.c_str();
 
 	while (current_ptr && current_line != location.start_line)
 	{
@@ -65,7 +59,7 @@ void log_error(const SourceLocation& location, const char* message)
 	}
 
 	printf("%sError: %s%s\n", CONSOLE_RED, message, CONSOLE_NRM);
-	printf("%s:%d:\n", location.source_file, location.start_line);
+	printf("%s:%d:\n", file_table[location.source_file].name.c_str(), location.start_line);
 
 	printf("%s", CONSOLE_BLU);
 	while (*current_ptr != '\n' && *current_ptr != '\0')

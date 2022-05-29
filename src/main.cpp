@@ -5,6 +5,7 @@
 #include "typecheck.h"
 #include "errors.h"
 #include "utils.h"
+#include "file_table.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,31 +96,60 @@ CommandLineOptions parse_arguments(int argc, char** argv)
 	return options;
 }
 
-int main(int argc, char** argv)
+std::string load_file(const std::string& file_addr)
 {
-	CommandLineOptions options = parse_arguments(argc, argv);
-
 	std::ifstream input_file;
-	input_file.open(options.input_file.value());
+	input_file.open(file_addr);
 	if (input_file.fail())
 	{
-		printf("Failed to open input file %s\n", options.input_file.value().c_str());
+		printf("Failed to open input file %s\n", file_addr.c_str());
 
 		internal_error("IO failure");
 	}
 
     std::stringstream sstr;
     sstr << input_file.rdbuf();
-    std::string str = sstr.str();
+    return sstr.str();
+}
 
-    set_current_file(str.data());
+int main(int argc, char** argv)
+{
+	CommandLineOptions options = parse_arguments(argc, argv);
 
-	std::vector<Token> tokens;
-	Lexer lexer(str, options.input_file.value().c_str());
+	auto& init_file = file_table.emplace_back();
+	init_file.name = options.input_file.value();
 
-	lex(tokens, lexer);
+	// Scan for includes, and lex all the found files
+	for (int i = 0; i < file_table.size(); i++)
+	{
+		file_table[i].contents = load_file(file_table[i].name);
+		Lexer lexer(file_table[i].contents, i);
+		lex(file_table[i].tokens, lexer);
 
-	Parser parser(tokens);
+		for (int ti = 0; ti < file_table[i].tokens.size(); ti++)
+		{
+			if (file_table[i].tokens[ti].type == TokenType::DirectiveInclude && file_table[i].tokens[ti + 1].type == TokenType::LiteralString)
+			{
+				auto& ident_token = file_table[i].tokens[ti + 1];
+
+				bool added_already = false;
+				for (auto& existing_file : file_table)
+				{
+					if (existing_file.name == ident_token.data_str)
+						added_already = true;
+				}
+
+				if (!added_already)
+				{
+					auto& new_file = file_table.emplace_back();
+					new_file.name = ident_token.data_str;
+				}
+			}
+		}
+	}
+
+	for (auto& file : file_table)
+		printf("%s\n", file.name.c_str());
 
 	SymbolTable symbol_table;
 
@@ -249,7 +279,11 @@ int main(int argc, char** argv)
 		func.intrinsic = true;
 	}
 	
-	parse_top_level(parser, symbol_table);
+	for (int i = 0; i < file_table.size(); i++)
+	{
+		Parser parser(file_table[file_table.size() - i - 1].tokens);
+		parse_top_level(parser, symbol_table);
+	}
 
 	if (options.output_debug_data.has_value())
 	{

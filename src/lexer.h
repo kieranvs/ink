@@ -16,6 +16,7 @@ enum class TokenType
 	KeywordFunctionType,
 	DirectiveLink,
 	DirectiveLinkFramework,
+	DirectiveInclude,
 	ParenthesisLeft,
 	ParenthesisRight,
 	BraceLeft,
@@ -48,7 +49,7 @@ enum class TokenType
 
 struct SourceLocation
 {
-	const char* source_file;
+	int source_file;
 	int start_line;
 	int start_col;
 	int end_line;
@@ -68,7 +69,7 @@ struct Token
 
 struct Lexer
 {
-	Lexer(const std::string& i, const char* file_name) : input(i), source_file(file_name) {}
+	Lexer(const std::string& i, int file_index) : input(i), source_file(file_index) {}
 
 	char peek();
 	char get();
@@ -92,7 +93,7 @@ struct Lexer
 	void update_line_col(char c);
 
 	const std::string& input;
-	const char* source_file;
+	int source_file;
 	size_t index = 0;
 	size_t current_line = 1;
 	size_t current_col = 1;
