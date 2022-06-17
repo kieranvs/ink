@@ -41,8 +41,8 @@ std::vector<NoteData> notes_to_print;
 
 void log_error(const SourceLocation& location, const char* message)
 {
-	size_t current_line = 1;
-	size_t current_col = 1;
+	int current_line = 1;
+	int current_col = 1;
 	const char* current_ptr = file_table[location.source_file].contents.c_str();
 
 	while (current_ptr && current_line != location.start_line)
@@ -93,15 +93,15 @@ void log_error(const SourceLocation& location, const char* message)
 		if (note.ta.special)
 		{
 			if (note.ta.type_index == TypeAnnotation::special_type_index_literal_int)
-				printf("Literal Integer", note.ta.type_index);
+				printf("Literal Integer");
 			else if (note.ta.type_index == TypeAnnotation::special_type_index_literal_bool)
-				printf("Literal Bool", note.ta.type_index);
+				printf("Literal Bool");
 			else if (note.ta.type_index == TypeAnnotation::special_type_index_literal_char)
-				printf("Literal Char", note.ta.type_index);
+				printf("Literal Char");
 			else if (note.ta.type_index == TypeAnnotation::special_type_index_literal_float)
-				printf("Literal Float", note.ta.type_index);
+				printf("Literal Float");
 			else
-				printf("Special Type %d", note.ta.type_index);
+				printf("Special Type %zu", note.ta.type_index);
 		}
 		else
 			pretty_print_type(stdout, *note.symbol_table, note.ta.type_index);

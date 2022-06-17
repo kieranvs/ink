@@ -120,13 +120,13 @@ int main(int argc, char** argv)
 	init_file.name = options.input_file.value();
 
 	// Scan for includes, and lex all the found files
-	for (int i = 0; i < file_table.size(); i++)
+	for (size_t i = 0; i < file_table.size(); i++)
 	{
 		file_table[i].contents = load_file(file_table[i].name);
 		Lexer lexer(file_table[i].contents, i);
 		lex(file_table[i].tokens, lexer);
 
-		for (int ti = 0; ti < file_table[i].tokens.size(); ti++)
+		for (size_t ti = 0; ti < file_table[i].tokens.size(); ti++)
 		{
 			if (file_table[i].tokens[ti].type == TokenType::DirectiveInclude && file_table[i].tokens[ti + 1].type == TokenType::LiteralString)
 			{
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
 	};
 
 	auto int_type = add_intrinsic_type("u64", 8);
-	auto bool_type = add_intrinsic_type("bool", 1);
+	add_intrinsic_type("bool", 1);
 	auto char_type = add_intrinsic_type("u8", 1);
 	auto float_type = add_intrinsic_type("f64", 8);
 	add_intrinsic_type("f32", 4);
@@ -279,7 +279,7 @@ int main(int argc, char** argv)
 		func.intrinsic = true;
 	}
 	
-	for (int i = 0; i < file_table.size(); i++)
+	for (size_t i = 0; i < file_table.size(); i++)
 	{
 		Parser parser(file_table[file_table.size() - i - 1].tokens);
 		parse_top_level(parser, symbol_table);
@@ -304,7 +304,6 @@ int main(int argc, char** argv)
 	type_check(symbol_table);
 
 	std::string asm_file_name;
-	bool should_delete_asm_file = false;
 	if (options.output_asm.has_value())
 		asm_file_name = options.output_asm.value();
 	else
@@ -364,7 +363,7 @@ int main(int argc, char** argv)
 		std::string linker_output;
 		const size_t buffer_size = 512;
 		char linker_command[buffer_size];
-		int bytes_written = 0;
+		size_t bytes_written = 0;
 
 		bytes_written += snprintf(linker_command + bytes_written, buffer_size - bytes_written, is_libc_mode ? "gcc" : "ld");
 		if (bytes_written >= buffer_size)

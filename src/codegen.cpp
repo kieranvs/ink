@@ -710,7 +710,6 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
 		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
 		auto& type = symbol_table.types[variable.type_index];
-		auto data_size = type.data_size;
 
 		size_t bytes_to_zero = type.data_size;
 		uint32_t addr_to_zero = variable.stack_offset;
@@ -1231,6 +1230,6 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 		auto& variable = symbol_table.global_variables[i];
 		auto& type = symbol_table.types[variable.type_index];
 		auto data_size = type.data_size;
-		fprintf(file, "GVAR%zu: resb %d\n", i, data_size);
+		fprintf(file, "GVAR%zu: resb %zu\n", i, data_size);
 	}
 }

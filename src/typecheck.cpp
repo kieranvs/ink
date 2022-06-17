@@ -393,7 +393,7 @@ void type_check_ast(SymbolTable& symbol_table, Ast& ast, size_t index, std::opti
 		{
 			auto current_arg_node = ast[index].child0;
 
-			for (int i = 0; i < func.parameters.size(); i++)
+			for (size_t i = 0; i < func.parameters.size(); i++)
 			{
 				type_check_ast(symbol_table, ast, current_arg_node, return_type_index);
 				auto& expr_ta = ast[current_arg_node].type_annotation;

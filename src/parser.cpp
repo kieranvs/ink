@@ -114,7 +114,6 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 {
 	std::stack<size_t> expr_nodes;
 	std::stack<std::pair<bool, Token>> operators; // first = is_binary
-	size_t index = 0;
 
 	auto priority = [](const std::pair<bool, Token>& token_pair)
 	{
@@ -312,7 +311,7 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 					parser.get_if(TokenType::ParenthesisLeft, "Missing argument list");
 
 					size_t prev_arg_node;
-					for (int i = 0; i < function_ref.parameters.size(); i++)
+					for (size_t i = 0; i < function_ref.parameters.size(); i++)
 					{
 						auto end_token = (i == function_ref.parameters.size() - 1) ? TokenType::ParenthesisRight : TokenType::Comma;
 						auto& token = parser.peek();
@@ -403,7 +402,7 @@ size_t parse_type(Parser& parser, SymbolTable& symbol_table)
 
 	while (parser.next_is(TokenType::Asterisk))
 	{
-		auto& asterisk_token = parser.get();
+		parser.get(); // asterisk
 		type_index = get_type_add_pointer(symbol_table, *type_index);
 	}
 
@@ -516,7 +515,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		std::optional<size_t> else_block_node;
 		if (parser.next_is(TokenType::KeywordElse))
 		{
-			auto& else_token = parser.get();
+			parser.get(); // else token
 
 			auto& brace_token = parser.get_if(TokenType::BraceLeft, "Expected {");
 

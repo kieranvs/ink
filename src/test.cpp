@@ -182,13 +182,13 @@ int main(int argc, const char** argv)
 		}
 	}
 
-	auto num_tests = tests.size();
+	size_t num_tests = tests.size();
 	size_t num_pass = 0;
 	std::vector<int> failures;
 
-	for (int i = 0; i < num_tests; i++)
+	for (size_t i = 0; i < num_tests; i++)
 	{
-		if (!quiet) printf("[%d/%d] ", i + 1, num_tests);
+		if (!quiet) printf("[%zu/%zu] ", i + 1, num_tests);
 		bool pass = run_test(tests[i].source_file.c_str(), tests[i].expected_error, tests[i].expected_output.c_str());
 		if (pass)
 			num_pass += 1;
@@ -197,7 +197,7 @@ int main(int argc, const char** argv)
 	}
 
 	printf("%s", num_pass == num_tests ? CONSOLE_GRN : CONSOLE_RED);
-	printf("%d/%d tests passed.\n", num_pass, num_tests);
+	printf("%zu/%zu tests passed.\n", num_pass, num_tests);
 	printf("%s", CONSOLE_NRM);
 
 	if (!quiet && !failures.empty())

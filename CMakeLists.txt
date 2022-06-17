@@ -18,6 +18,7 @@ add_executable(
 	src/typecheck.cpp
 	src/utils.cpp
 )
+target_compile_options(compiler PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)
 
 # ======== Testing ========
 add_executable(
@@ -26,3 +27,4 @@ add_executable(
 	src/utils.cpp
 )
 add_dependencies(testing compiler)
+target_compile_options(testing PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)

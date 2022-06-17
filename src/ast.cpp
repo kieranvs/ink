@@ -120,7 +120,6 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	{
 		auto func_index = ast[index].data_function_call.function_index;
 		auto& func = symbol_table.functions[func_index];
-		auto& func_scope = symbol_table.scopes[func.scope];
 
 		fprintf(output, "Function call %s\n", func.name.c_str());
 
@@ -128,7 +127,7 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 		{
 			auto current_arg_node = ast[index].child0;
 
-			for (int i = 0; i < func.parameters.size(); i++)
+			for (size_t i = 0; i < func.parameters.size(); i++)
 			{
 				dump_ast(output, symbol_table, ast, current_arg_node, indent + 1);
 				current_arg_node = ast[current_arg_node].next.value_or(current_arg_node);
@@ -283,11 +282,11 @@ void dump_scope(FILE* output, SymbolTable& symbol_table, size_t index, int inden
 void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 {
 	fprintf(output, "------ Types ------\n");
-	for (int i = 0; i < symbol_table.types.size(); i++)
+	for (size_t i = 0; i < symbol_table.types.size(); i++)
 	{
 		auto& t = symbol_table.types[i];
 
-		fprintf(output, "%d (", i);
+		fprintf(output, "%zu (", i);
 		pretty_print_type(output, symbol_table, i);
 		fprintf(output, ")\n");
 
