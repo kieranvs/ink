@@ -1,5 +1,7 @@
 #include "errors.h"
+
 #include "file_table.h"
+#include "utils.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -25,9 +27,12 @@ std::vector<NoteData> notes_to_print;
 
 [[noreturn]] void internal_error(const char* message)
 {
+	printf("%sInternal compiler error: %s%s\n\n", CONSOLE_RED, CONSOLE_NRM, message);
+	printf("Stack trace:\n%s", CONSOLE_BLU);
+	print_stack_trace();
+	printf("%s\n", CONSOLE_NRM);
 	delete_exit_files();
 
-	printf("%s\n", message);
 	exit(1);
 }
 

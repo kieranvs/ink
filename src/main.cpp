@@ -301,7 +301,16 @@ int main(int argc, char** argv)
 		fclose(debug_output_file);
 	}
 
-	type_check(symbol_table);
+	try
+	{
+		type_check(symbol_table);
+	}
+	catch (std::exception& e)
+	{
+		std::string msg = "Internal error during typecheck: ";
+		msg += e.what();
+		internal_error(msg.c_str());
+	}
 
 	std::string asm_file_name;
 	bool should_delete_asm_file = false;
