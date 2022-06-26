@@ -1,0 +1,121 @@
+To do:
+- Bitwise operators: | & ^
+- Binary operators: %
+- Assign with operator += -= etc
+- Increment decrement x++ etc
+- Unary operators: - !
+- Parentheses in expressions
+- Elseif branches
+- Single line blocks without {}
+- Globals struct selectors
+- Heap allocations
+- Syscalls (better intrinsics?)
+- Out of order declarations
+- Const
+- Sized integers
+- Arrays
+- Pointer arithmetic
+- Pointer selectors
+- Function pointers, calling
+- Distinct type - could use for opaque pointer types from libraries by introducing a raw pointer type
+- Error codes, more specific error checking in tests
+- Calling variadic external functions
+- Closures
+- Find a way to write unit tests for multiple files
+- Find a way to write unit tests for external library includes
+
+Known issues:
+- Binary operators come out backwards in ast dump - I suspect the parser and codegen both generate the LHS and RHS swapped, which means the tests end up passing
+- Leave ret duplication
+- PIE error with libc
+- Empty function crashes compiler
+- Dereference pointer to struct loads only one byte
+- && binding too tight: if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) doesn't work
+- special type for char and bool aren't necessary
+- use of invalid type as function param crash, e.g. f(int x), f(f(5))
+- Scope child iteration is slow - store child_next in scope and owner (function/struct)
+
+Ideas:
+
+// Runtime if - but can eval at compile time if x is a constant expression
+if (x == 5)
+{
+}
+
+// Must eval at compile time, error otherwise
+const if (x == 5)
+{
+	
+}
+
+// Static if, doesn't make a scope
+#if (x == 5)
+	bool b;
+#endif
+
+// Static for loop
+#for (int i = 0; i < 4; i++)
+	d[i] = ...
+#endfor
+
+// #identifier to turn a string into a name which can be used at compile time
+#for (int i = 0; i < 4; i++)
+	bool #identifier("b%d", i);
+#endfor
+
+// Functions with static arguments
+// Declares a family of functions add where add<i> is a separate function in the binary
+// for each i
+fn add<int N>(int x) : int
+{
+	return x + N;
+}
+// usage:
+int x = add<4>(3);
+
+// This lets you have generics:
+fn add<type T>(T a, T b) : T
+{
+	return a + b;
+}
+
+// A nice syntactic sugar is to use $ to automatically add a static type argument
+// which is filled in with the type of the supplied parameter
+fn add($T a, T b) : T
+{
+	return a + b;
+}
+
+// Functions which take types as parameters
+fn remove_pointer(type a) : type
+{
+	return typeof(*expr_of(a));
+}
+// Not sure if above or below is better
+fn remove_pointer<type a>() : type
+{
+	return typeof(*expr_of(a));
+}
+
+// Should variables of type type be useable in declarations?
+fn make_default(type a) : a
+{
+	a x;
+	return x;
+}
+
+// Structs should take static arguments too
+struct Foo<type A>
+{
+	A a1;
+}
+
+// Reflection
+struct Foo
+{
+	int x;
+}
+
+typeof(x); == Foo
+typeinfo(Foo) = global constant data struct with information
+typeinfo(typeof(x)).name == "Foo"
