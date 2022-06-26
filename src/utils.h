@@ -19,3 +19,5 @@ inline constexpr Platform get_platform()
 	#error "Unsupported platform"
 #endif
 }
+
+void print_stack_trace();

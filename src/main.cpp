@@ -6,6 +6,7 @@
 #include "errors.h"
 #include "utils.h"
 #include "file_table.h"
+#include "sizer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -148,9 +149,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	for (auto& file : file_table)
-		printf("%s\n", file.name.c_str());
-
 	SymbolTable symbol_table;
 
 	auto add_intrinsic_type = [&](const char* name, size_t data_size)
@@ -285,6 +283,8 @@ int main(int argc, char** argv)
 		parse_top_level(parser, symbol_table);
 	}
 
+	compute_sizing(symbol_table);
+
 	if (options.output_debug_data.has_value())
 	{
 		FILE* debug_output_file = fopen(options.output_debug_data.value().c_str(), "w");
@@ -301,7 +301,16 @@ int main(int argc, char** argv)
 		fclose(debug_output_file);
 	}
 
-	type_check(symbol_table);
+	try
+	{
+		type_check(symbol_table);
+	}
+	catch (std::exception& e)
+	{
+		std::string msg = "Internal error during typecheck: ";
+		msg += e.what();
+		internal_error(msg.c_str());
+	}
 
 	std::string asm_file_name;
 	if (options.output_asm.has_value())

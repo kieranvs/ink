@@ -7,7 +7,7 @@ struct Parser
 {
 	Parser(const std::vector<Token>& i) : input(i) {}
 
-	const Token& peek();
+	const Token& peek(int ahead = 0);
 	const Token& get();
 	const Token& get_if(TokenType type, const char* error_message);
 

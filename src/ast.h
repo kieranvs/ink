@@ -138,7 +138,6 @@ struct Ast
 
 struct Variable
 {
-	uint32_t scope_offset;
 	uint32_t stack_offset;
 	std::string name;
 	size_t type_index;
@@ -150,13 +149,15 @@ enum class TypeType
 	Pointer,
 	Struct,
 	Alias,
-	Function
+	Function,
+	Incomplete
 };
 
 struct Type
 {
 	std::string name;
 	TypeType type;
+	SourceLocation location; // For printing errors etc
 
 	size_t data_size;
 
@@ -239,6 +240,7 @@ struct SymbolTable
 	std::optional<VariableFindResult> find_variable(size_t scope_index, const std::string& name);
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
+	size_t find_add_type(const std::string& name, const Token& token);
 	std::optional<size_t> find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type);
 
 	size_t find_add_string(const std::string& str);
