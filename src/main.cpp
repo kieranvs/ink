@@ -91,8 +91,26 @@ CommandLineOptions parse_arguments(int argc, char** argv)
 	if (!options.input_file.has_value())
 		fail_custom("No input file provided!\n");
 
+	auto extension_matches = [](const std::string& path, const char* ext)
+	{
+		auto path_len = path.length();
+		auto ext_len = strlen(ext);
+
+		if (path_len < ext_len) return false;
+
+		return strcmp(path.c_str() + path_len - ext_len, ext) == 0;
+	};
+
 	if (!options.output_binary.has_value())
-		options.output_binary = options.input_file.value() + "-bin";
+	{
+		if (extension_matches(options.input_file.value(), ".ink"))
+		{
+			auto new_len = options.input_file.value().length() - 4;
+			options.output_binary = options.input_file.value().substr(0, new_len);
+		}
+		else
+			options.output_binary = options.input_file.value() + "-bin";
+	}
 
 	return options;
 }

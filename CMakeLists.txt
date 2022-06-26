@@ -9,7 +9,7 @@ set(CMAKE_ENABLE_EXPORTS TRUE)
 
 # ======== Compiler ========
 add_executable(
-	compiler
+	inkc
 	src/ast.cpp
 	src/codegen.cpp
 	src/errors.cpp
@@ -21,7 +21,7 @@ add_executable(
 	src/typecheck.cpp
 	src/utils.cpp
 )
-target_compile_options(compiler PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)
+target_compile_options(inkc PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)
 
 # ======== Testing ========
 add_executable(
@@ -29,5 +29,5 @@ add_executable(
 	src/test.cpp
 	src/utils.cpp
 )
-add_dependencies(testing compiler)
+add_dependencies(testing inkc)
 target_compile_options(testing PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)
