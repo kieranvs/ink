@@ -1,6 +1,7 @@
 #include "ast.h"
 
 #include "errors.h"
+#include "utils.h"
 
 #include <stdio.h>
 
@@ -256,6 +257,10 @@ void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_inde
 			pretty_print_type(output, symbol_table, function_type.return_type_index.value());
 		}
 	}
+	else if (t.type == TypeType::Incomplete)
+	{
+		fprintf(output, "<incomplete type>");
+	}
 	else
 		internal_error("Unhandled type type in pretty_print_type\n");
 }
@@ -268,7 +273,7 @@ void dump_scope(FILE* output, SymbolTable& symbol_table, size_t index, int inden
 			fprintf(output, "  ");
 		fprintf(output, "%s (type=", variable.name.c_str());
 		pretty_print_type(output, symbol_table, variable.type_index);
-		fprintf(output, ", stack_offset=%u, scope_offset=%u)\n", variable.stack_offset, variable.scope_offset);
+		fprintf(output, ", stack_offset=%u)\n", variable.stack_offset);
 	}
 
 	for (size_t child = 0; child < symbol_table.scopes.size(); child++)
@@ -394,17 +399,13 @@ std::optional<size_t> Scope::make_variable(SymbolTable& symbol_table, const std:
 	}
 
 	auto& type = symbol_table.types[type_index];
+	if (type.type == TypeType::Alias)
+		internal_error("make_variable called with alias type");
 
-	local_variables.emplace_back();
-	auto& v = local_variables.back();
-
+	auto& v = local_variables.emplace_back();
 	v.name = name;
 	v.type_index = type_index;
-	if (local_variables.size() == 1)
-		v.scope_offset = type.data_size;
-	else
-		v.scope_offset = local_variables[local_variables.size() - 2].scope_offset + type.data_size;
-
+	
 	return local_variables.size() - 1;
 }
 
@@ -433,6 +434,27 @@ std::optional<size_t> SymbolTable::find_type(const std::string& name)
 	}
 
 	return std::nullopt;
+}
+
+size_t SymbolTable::find_add_type(const std::string& name, const Token& token)
+{
+	for (size_t i = 0; i < types.size(); i++)
+	{
+		if (types[i].name == name)
+		{
+			if (types[i].type == TypeType::Alias)
+				return types[i].actual_type;
+			else
+				return i;
+		}
+	}
+
+	auto& type = types.emplace_back();
+	type.type = TypeType::Incomplete;
+	type.name = name;
+	type.location = token.location;
+
+	return types.size() - 1;
 }
 
 std::optional<size_t> SymbolTable::find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type)

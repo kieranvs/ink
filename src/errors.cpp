@@ -124,6 +124,15 @@ void log_error(const SourceLocation& location, const char* message)
 	exit(101);
 }
 
+[[noreturn]] void log_error(const Type& type, const char* message)
+{
+	delete_exit_files();
+
+	log_error(type.location, message);
+
+	exit(101);
+}
+
 [[noreturn]] void log_error(const AstNode& node, const char* message)
 {
 	delete_exit_files();

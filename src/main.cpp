@@ -6,6 +6,7 @@
 #include "errors.h"
 #include "utils.h"
 #include "file_table.h"
+#include "sizer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -148,9 +149,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	for (auto& file : file_table)
-		printf("%s\n", file.name.c_str());
-
 	SymbolTable symbol_table;
 
 	auto add_intrinsic_type = [&](const char* name, size_t data_size)
@@ -284,6 +282,8 @@ int main(int argc, char** argv)
 		Parser parser(file_table[file_table.size() - i - 1].tokens);
 		parse_top_level(parser, symbol_table);
 	}
+
+	compute_sizing(symbol_table);
 
 	if (options.output_debug_data.has_value())
 	{

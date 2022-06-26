@@ -17,6 +17,7 @@ add_executable(
 	src/lexer.cpp
 	src/main.cpp
 	src/parser.cpp
+	src/sizer.cpp
 	src/typecheck.cpp
 	src/utils.cpp
 )

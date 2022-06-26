@@ -4,14 +4,14 @@
 
 #include <stack>
 
-const Token& Parser::peek()
+const Token& Parser::peek(int ahead)
 {
-	if (index >= input.size())
+	if ((index + ahead) >= input.size())
 	{
 		internal_error("Parser read past end of input data");
 	}
 
-	return input[index];
+	return input[index + ahead];
 }
 
 const Token& Parser::get()
@@ -101,7 +101,7 @@ size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_
 
 		auto selector_node = ast.make(AstNodeType::Selector, ident_token);
 		ast[selector_node].data_variable.variable_index = variable_location.variable_index;
-		ast[selector_node].data_variable.scope_index = variable_location.scope_index;;
+		ast[selector_node].data_variable.scope_index = variable_location.scope_index;
 		ast[selector_node].child0 = node;
 
 		node = selector_node;
@@ -381,14 +381,17 @@ size_t parse_expression(Parser& parser, Ast& ast, SymbolTable& symbol_table, siz
 	return expr_nodes.top();
 }
 
-bool next_matches_type(Parser& parser, SymbolTable& symbol_table)
+bool next_matches_type(Parser& parser)
 {
 	if (parser.next_is(TokenType::Identifier))
 	{
-		auto& type_token = parser.peek();
+		int i = 1;
+		while (parser.peek(i).type == TokenType::Asterisk)
+			i += 1;
 
-		auto type_index = symbol_table.find_type(type_token.data_str);
-		return type_index.has_value();
+		if (parser.peek(i).type == TokenType::ParenthesisLeft) return false;
+
+		return true;
 	}
 
 	return false;
@@ -397,17 +400,15 @@ bool next_matches_type(Parser& parser, SymbolTable& symbol_table)
 size_t parse_type(Parser& parser, SymbolTable& symbol_table)
 {
 	auto& type_token = parser.get();
-	auto type_index = symbol_table.find_type(type_token.data_str);
-	if (!type_index.has_value())
-		log_error(type_token, "Unknown type");
-
+	auto type_index = symbol_table.find_add_type(type_token.data_str, type_token);
+	
 	while (parser.next_is(TokenType::Asterisk))
 	{
 		auto& asterisk_token = parser.get();
-		type_index = get_type_add_pointer(symbol_table, *type_index);
+		type_index = get_type_add_pointer(symbol_table, type_index);
 	}
 
-	return type_index.value();
+	return type_index;
 }
 
 size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token = TokenType::StatementEnd)
@@ -427,7 +428,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 		return assign_node;
 	}
 	// Assignment to new variable
-	else if (next_matches_type(parser, symbol_table))
+	else if (next_matches_type(parser))
 	{
 		auto type_index = parse_type(parser, symbol_table);
 
@@ -635,32 +636,6 @@ std::optional<size_t> parse_block(Parser& parser, Ast& ast, SymbolTable& symbol_
 	return first_node;
 }
 
-uint32_t assign_stack_offsets(SymbolTable& symbol_table, uint32_t base_offset, size_t scope_index)
-{
-	uint32_t scope_size = 0;
-	for (auto& v : symbol_table.scopes[scope_index].local_variables)
-	{
-		v.stack_offset = v.scope_offset + base_offset;
-
-		if (scope_size < v.scope_offset)
-			scope_size = v.scope_offset;
-	}
-
-	// This is an inefficient way to find the child scopes
-	uint32_t biggest_child_size = 0;
-	for (size_t i = 0; i < symbol_table.scopes.size(); i++)
-	{
-		auto& scope = symbol_table.scopes[i];
-		if (!scope.parent.has_value() || scope.parent.value() != scope_index) continue;
-
-		uint32_t child_size = assign_stack_offsets(symbol_table, base_offset + scope_size, i);
-		if (child_size > biggest_child_size)
-			biggest_child_size = child_size;
-	}
-
-	return biggest_child_size + scope_size;
-}
-
 void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 {
 	if (is_external)
@@ -693,7 +668,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 		if (!parser.has_more())
 			log_error(func_ident_token, "Invalid function declaration");
 
-		if (next_matches_type(parser, symbol_table))
+		if (next_matches_type(parser))
 		{
 			auto type_index = parse_type(parser, symbol_table);
 			auto& ident_token = parser.get();
@@ -735,11 +710,6 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 		parser.get_if(TokenType::BraceLeft, "Expected {");
 
 		func.ast[func_node].next = parse_block(parser, func.ast, symbol_table, scope, false);
-
-		auto stack_size = assign_stack_offsets(symbol_table, 0, scope);
-		if (stack_size % 16 != 0)
-			stack_size = ((stack_size / 16) + 1) * 16;
-		func.ast[func_node].data_function_definition.stack_size = stack_size;
 	}
 	else
 	{
@@ -770,7 +740,7 @@ void parse_function_type(Parser& parser, SymbolTable& symbol_table)
 		if (!parser.has_more())
 			log_error(ident_token, "Invalid function declaration");
 
-		if (next_matches_type(parser, symbol_table))
+		if (next_matches_type(parser))
 		{
 			auto type_index = parse_type(parser, symbol_table);
 			parameter_types.push_back(type_index);
@@ -834,27 +804,26 @@ void parse_struct(Parser& parser, SymbolTable& symbol_table)
 	auto& struct_ident_token = parser.get_if(TokenType::Identifier, "Expected struct name");
 	parser.get_if(TokenType::BraceLeft, "Expected {");
 
-	if (symbol_table.find_type(struct_ident_token.data_str) != std::nullopt)
-		log_error(struct_ident_token, "Redefined type");
-
-	symbol_table.types.emplace_back();
-	auto type_index = symbol_table.types.size() - 1;
 	symbol_table.scopes.emplace_back();
 	auto scope_index = symbol_table.scopes.size() - 1;
 
-	{
-		auto& struct_type = symbol_table.types.back();
-		struct_type.name = struct_ident_token.data_str;
-		struct_type.type = TypeType::Struct;
-		struct_type.scope = scope_index;
-	}
+	auto found_type = symbol_table.find_add_type(struct_ident_token.data_str, struct_ident_token);
 
+	auto& struct_type = symbol_table.types[found_type];
+	if (struct_type.type != TypeType::Incomplete)
+		log_error(struct_ident_token, "Redefined type");
+
+	// Fill in the incomplete type
+	struct_type.type = TypeType::Struct;
+	struct_type.scope = scope_index;
+	struct_type.location = struct_ident_token.location;
+	
 	while (true)
 	{
 		if (!parser.has_more())
 			log_error(struct_ident_token, "Invalid struct declaration");
 
-		if (next_matches_type(parser, symbol_table))
+		if (next_matches_type(parser))
 		{
 			auto field_type_index = parse_type(parser, symbol_table);
 			auto& ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
@@ -875,8 +844,6 @@ void parse_struct(Parser& parser, SymbolTable& symbol_table)
 			log_error(parser.peek(), "Unexpected token in struct declaration");
 		}
 	}
-
-	symbol_table.types[type_index].data_size = assign_stack_offsets(symbol_table, 0, scope_index);
 }
 
 void parse_top_level(Parser& parser, SymbolTable& symbol_table)
@@ -898,7 +865,7 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 
 			symbol_table.add_linker_path(path_token.data_str, link_token.type == TokenType::DirectiveLinkFramework);
 		}
-		else if (next_matches_type(parser, symbol_table))
+		else if (next_matches_type(parser))
 		{
 			auto type_index = parse_type(parser, symbol_table);
 

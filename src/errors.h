@@ -8,6 +8,7 @@
 [[noreturn]] void internal_error(const char* message);
 [[noreturn]] void log_general_error(const char* message);
 [[noreturn]] void log_error(const Token& token, const char* message);
+[[noreturn]] void log_error(const Type& type, const char* message);
 [[noreturn]] void log_error(const AstNode& node, const char* message);
 void log_note_type(const AstNode& node, SymbolTable& symbol_table, const char* label);
 void log_note_type(const TypeAnnotation& ta, SymbolTable& symbol_table, const char* label);
