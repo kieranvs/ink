@@ -216,7 +216,7 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	}
 	else
 	{
-		printf("type=%d\n", ast[index].type);
+		printf("type=%d\n", (int)(ast[index].type));
 		internal_error("Unhandled AST node type in dump_ast");
 	}
 }
