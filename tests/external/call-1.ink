@@ -1,5 +1,7 @@
 // @test Hello
 
+// Verify that external function can be called
+
 #link "libc"
 #link "libext.a"
 
