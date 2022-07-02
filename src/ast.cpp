@@ -258,7 +258,7 @@ void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_inde
 	}
 	else if (t.type == TypeType::Incomplete)
 	{
-		fprintf(output, "<incomplete type>");
+		fprintf(output, "%s (incomplete type)", t.name.c_str());
 	}
 	else
 		internal_error("Unhandled type type in pretty_print_type\n");

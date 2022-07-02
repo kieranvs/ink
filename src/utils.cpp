@@ -66,3 +66,13 @@ void print_stack_trace()
 	if (num_frames == max_frames)
 		printf("[truncated]\n");
 }
+
+std::string get_relative_path(const std::string& from_file, const std::string& rel_path)
+{
+	size_t i = from_file.find_last_of('/');
+	if (i == std::string::npos)
+		return rel_path;
+
+q	auto base_path = from_file.substr(0, i + 1);
+	return base_path + rel_path;
+}

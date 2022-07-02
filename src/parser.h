@@ -41,4 +41,4 @@ struct Parser
 	size_t index = 0;
 };
 
-void parse_top_level(Parser& parser, SymbolTable& symbol_table);
+void parse_top_level(Parser& parser, SymbolTable& symbol_table, const std::string& file_path);

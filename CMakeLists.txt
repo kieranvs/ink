@@ -23,11 +23,21 @@ add_executable(
 )
 target_compile_options(inkc PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)
 
+# ======== Testing extra files ========
+add_library(
+	ext
+	tests/external/ext.c
+)
+set_target_properties(ext
+	PROPERTIES
+	ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/external
+)
+
 # ======== Testing ========
 add_executable(
 	testing
 	src/test.cpp
 	src/utils.cpp
 )
-add_dependencies(testing inkc)
+add_dependencies(testing inkc ext)
 target_compile_options(testing PRIVATE -Werror -Wall -Wextra -Wpedantic -Wno-deprecated-declarations)

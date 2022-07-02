@@ -1,6 +1,7 @@
 #include "parser.h"
 
 #include "errors.h"
+#include "utils.h"
 
 #include <stack>
 
@@ -845,7 +846,7 @@ void parse_struct(Parser& parser, SymbolTable& symbol_table)
 	}
 }
 
-void parse_top_level(Parser& parser, SymbolTable& symbol_table)
+void parse_top_level(Parser& parser, SymbolTable& symbol_table, const std::string& file_path)
 {
 	while (parser.has_more())
 	{
@@ -862,7 +863,16 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table)
 			auto& link_token = parser.get();
 			auto& path_token = parser.get_if(TokenType::LiteralString, "Expected linker path");
 
-			symbol_table.add_linker_path(path_token.data_str, link_token.type == TokenType::DirectiveLinkFramework);
+			if (link_token.type == TokenType::DirectiveLinkFramework || path_token.data_str == "libc")
+			{
+				symbol_table.add_linker_path(path_token.data_str, link_token.type == TokenType::DirectiveLinkFramework);
+			}
+			else
+			{
+				auto link_path = get_relative_path(file_path, path_token.data_str);
+				symbol_table.add_linker_path(link_path, link_token.type == TokenType::DirectiveLinkFramework);
+			}
+
 		}
 		else if (next_matches_type(parser))
 		{

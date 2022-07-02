@@ -298,7 +298,7 @@ int main(int argc, char** argv)
 	for (size_t i = 0; i < file_table.size(); i++)
 	{
 		Parser parser(file_table[file_table.size() - i - 1].tokens);
-		parse_top_level(parser, symbol_table);
+		parse_top_level(parser, symbol_table, file_table[file_table.size() - i - 1].name);
 	}
 
 	compute_sizing(symbol_table);

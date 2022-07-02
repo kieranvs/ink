@@ -21,3 +21,5 @@ inline constexpr Platform get_platform()
 }
 
 void print_stack_trace();
+
+std::string get_relative_path(const std::string& from_file, const std::string& rel_path);

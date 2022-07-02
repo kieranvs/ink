@@ -32,7 +32,7 @@ bool run_test(const char* input_file, int expected_error, const char* expected_o
 	bool success = [&]()
 	{
 		char compiler_command[1024];
-		snprintf(compiler_command, 1024, "./compiler %s -o %s", input_file, executable_name);
+		snprintf(compiler_command, 1024, "./inkc %s -o %s", input_file, executable_name);
 		std::string compiler_output;
 		int compiler_error = exec_process(compiler_command, compiler_output);
 		if (compiler_error != expected_error)
@@ -113,6 +113,13 @@ int main(int argc, const char** argv)
 	for (auto const& dir_entry : std::filesystem::recursive_directory_iterator("../tests"))
 	{
 		if (!dir_entry.is_regular_file()) continue;
+
+		auto ext = dir_entry.path().extension();
+		if (ext != ".ink")
+		{
+			printf("Skipping %s with extension %s\n", dir_entry.path().c_str(), dir_entry.path().extension().c_str());
+			continue;
+		}
 
 		std::ifstream input_file;
 		input_file.open(dir_entry.path());
