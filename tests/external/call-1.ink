@@ -3,10 +3,10 @@
 #link "libc"
 #link "libext.a"
 
-external fn _print_msg()
+external fn print_msg()
 
 fn main() : int
 {
-	_print_msg();
+	print_msg();
 	return 0;
 }

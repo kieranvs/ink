@@ -191,6 +191,7 @@ struct Function
 	Ast ast;
 	size_t ast_node_root;
 	std::string name;
+	std::string asm_name;
 	std::vector<size_t> parameters;
 	bool intrinsic;
 	std::optional<size_t> return_type_index;

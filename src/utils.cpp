@@ -73,6 +73,6 @@ std::string get_relative_path(const std::string& from_file, const std::string& r
 	if (i == std::string::npos)
 		return rel_path;
 
-q	auto base_path = from_file.substr(0, i + 1);
+	auto base_path = from_file.substr(0, i + 1);
 	return base_path + rel_path;
 }

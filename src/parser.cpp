@@ -651,6 +651,10 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 	symbol_table.functions.emplace_back();
 	Function& func = symbol_table.functions.back();
 	func.name = func_ident_token.data_str;
+	if (is_external && get_platform() == Platform::MacOS)
+		func.asm_name = std::string("_") + func.name;
+	else
+		func.asm_name = func.name;
 	func.intrinsic = false;
 	size_t func_index = symbol_table.functions.size() - 1;
 

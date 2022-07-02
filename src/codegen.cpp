@@ -532,7 +532,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 			}
 		}
 
-		fprintf(file, "    call %s\n", func.name.c_str());
+		fprintf(file, "    call %s\n", func.asm_name.c_str());
 
 		std::optional<int> return_reg;
 		if (func.return_type_index.has_value())
@@ -599,7 +599,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 			auto& func = symbol_table.functions[func_index];
 
 			int r = registers.get_free_register(RegisterStatusFlag_InUse);
-			fprintf(file, "    mov %s, qword %s\n", register_name(r, 8), func.name.c_str());
+			fprintf(file, "    mov %s, qword %s\n", register_name(r, 8), func.asm_name.c_str());
 			return r;
 		}
 		else
@@ -1001,7 +1001,7 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	{
 		if (func.is_external)
 		{
-			fprintf(file, "    extern    %s\n", func.name.c_str());
+			fprintf(file, "    extern    %s\n", func.asm_name.c_str());
 		}
 	}
 

@@ -211,6 +211,7 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_uint32";
+		func.asm_name = "print_uint32";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
@@ -227,6 +228,7 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_bool";
+		func.asm_name = "print_bool";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
@@ -243,6 +245,7 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_char";
+		func.asm_name = "print_char";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
@@ -259,6 +262,7 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_float";
+		func.asm_name = "print_float";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
@@ -275,6 +279,7 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_float32";
+		func.asm_name = "print_float32";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
@@ -291,6 +296,7 @@ int main(int argc, char** argv)
 		auto& func = symbol_table.functions.back();
 		func.scope = scope_index;
 		func.name = "print_string";
+		func.asm_name = "print_string";
 		func.parameters.push_back(0);
 		func.intrinsic = true;
 	}
