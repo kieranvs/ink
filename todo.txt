@@ -22,7 +22,6 @@ To do:
 - Calling variadic external functions
 - Closures
 - Find a way to write unit tests for multiple files
-- Find a way to write unit tests for external library includes
 
 Known issues:
 - Binary operators come out backwards in ast dump - I suspect the parser and codegen both generate the LHS and RHS swapped, which means the tests end up passing
