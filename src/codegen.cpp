@@ -1,4 +1,5 @@
 #include "codegen.h"
+#include "sizer.h"
 #include "typecheck.h"
 #include "errors.h"
 #include "utils.h"
@@ -182,8 +183,7 @@ std::pair<uint32_t, size_t> compute_stack_offset_and_size(Ast& ast, SymbolTable&
 
 	auto& scope = symbol_table.scopes[ast_node.data_variable.scope_index];
 	auto& variable = scope.local_variables[ast_node.data_variable.variable_index];
-	auto& type = symbol_table.types[variable.type_index];
-	auto data_size = type.data_size;
+	auto data_size = get_data_size(symbol_table, variable.type_annotation);
 
 	if (ast_node.type == AstNodeType::Selector)
 	{
@@ -450,8 +450,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 
 		auto variable_index = ast[index].data_variable.variable_index;
 		auto& variable = symbol_table.global_variables[variable_index];
-		auto& type = symbol_table.types[variable.type_index];
-		auto data_size = type.data_size;
+		auto data_size = get_data_size(symbol_table, variable.type_annotation);
 
 		if (is_float_type(ast[index].type_annotation.value()))
 		{
@@ -494,11 +493,7 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 			{
 				int r = codegen_expr(ast, symbol_table, file, ast[current_arg_node].child0, registers_temp);
 
-				auto var_type = func_scope.local_variables[param_variable_index].type_index;
-
-				TypeAnnotation ta;
-				ta.special = false;
-				ta.type_index = var_type;
+				auto ta = func_scope.local_variables[param_variable_index].type_annotation;
 
 				int param_register;
 
@@ -535,12 +530,9 @@ int codegen_expr(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t index, 
 		fprintf(file, "    call %s\n", func.asm_name.c_str());
 
 		std::optional<int> return_reg;
-		if (func.return_type_index.has_value())
+		if (func.return_type.has_value())
 		{
-			TypeAnnotation return_ta;
-			return_ta.special = false;
-			return_ta.type_index = func.return_type_index.value();
-
+			auto& return_ta = func.return_type.value();
 			// Move the result into a free register
 			if (is_float_type(return_ta))
 			{
@@ -670,8 +662,7 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 		{
 			auto variable_index = var_node.data_variable.variable_index;
 			auto& variable = symbol_table.global_variables[variable_index];
-			auto& type = symbol_table.types[variable.type_index];
-			auto data_size = type.data_size;
+			auto data_size = get_data_size(symbol_table, variable.type_annotation);
 
 			if (is_float_type(ast[ast[index].child0].type_annotation.value()))
 			{
@@ -709,9 +700,9 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 
 		auto& scope = symbol_table.scopes[ast[variable_node].data_variable.scope_index];
 		auto& variable = scope.local_variables[ast[variable_node].data_variable.variable_index];
-		auto& type = symbol_table.types[variable.type_index];
+		auto data_size = get_data_size(symbol_table, variable.type_annotation);
 
-		size_t bytes_to_zero = type.data_size;
+		size_t bytes_to_zero = data_size;
 		uint32_t addr_to_zero = variable.stack_offset;
 
 		// Get a temporary register - 0 flag because we are done with it immediately
@@ -755,12 +746,10 @@ void codegen_statement(Ast& ast, SymbolTable& symbol_table, FILE* file, size_t i
 				else
 				{
 					auto& func = symbol_table.functions[function_index];
-					if (!func.return_type_index.has_value())
+					if (!func.return_type.has_value())
 						internal_error("Missing return type index");
 
-					TypeAnnotation function_ret_ta;
-					function_ret_ta.special = false;
-					function_ret_ta.type_index = func.return_type_index.value();
+					TypeAnnotation function_ret_ta = func.return_type.value();
 
 					if (is_float_32_type(function_ret_ta))
 					{
@@ -906,12 +895,8 @@ void codegen_function(size_t function_index, SymbolTable& symbol_table, FILE* fi
 	for (auto param_variable_index : func.parameters)
 	{
 		auto param_offset = func_scope.local_variables[param_variable_index].stack_offset;
-		auto var_type = func_scope.local_variables[param_variable_index].type_index;
-		auto data_size = symbol_table.types[var_type].data_size;
-
-		TypeAnnotation ta;
-		ta.special = false;
-		ta.type_index = var_type;
+		auto ta = func_scope.local_variables[param_variable_index].type_annotation;
+		auto data_size = get_data_size(symbol_table, ta);
 
 		int param_register;
 
@@ -951,15 +936,17 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	{
 		if (func.name == "main")
 		{
-			if (!func.return_type_index.has_value())
+			if (!func.return_type.has_value())
 				log_error(func.ast[func.ast_node_root], "Main function missing return type");
 
-			if (symbol_table.types[func.return_type_index.value()].name != "u64")
+			TypeAnnotation expected_ta;
+			expected_ta.type_index = TypeAnnotation::intrinsic_type_index_int;
+			expected_ta.special = false;
+			expected_ta.modifiers_in_use = 0;
+
+			if (!symbol_table.check_equivalent(func.return_type.value(), expected_ta))
 			{
-				TypeAnnotation return_ta;
-				return_ta.special = false;
-				return_ta.type_index = func.return_type_index.value();
-				log_note_type(return_ta, symbol_table, "function return");
+				log_note_type(func.return_type.value(), symbol_table, "function return");
 				log_error(func.ast[func.ast_node_root], "Main function defined with wrong return type");
 			}
 
@@ -1228,8 +1215,7 @@ void codegen(SymbolTable& symbol_table, FILE* file, bool is_libc_mode)
 	for (size_t i = 0; i < symbol_table.global_variables.size(); i++)
 	{
 		auto& variable = symbol_table.global_variables[i];
-		auto& type = symbol_table.types[variable.type_index];
-		auto data_size = type.data_size;
+		auto data_size = get_data_size(symbol_table, variable.type_annotation);
 		fprintf(file, "GVAR%zu: resb %zu\n", i, data_size);
 	}
 }

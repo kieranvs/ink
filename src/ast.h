@@ -19,6 +19,31 @@ struct TypeAnnotation
 	constexpr static size_t special_type_index_literal_bool = 1;
 	constexpr static size_t special_type_index_literal_char = 2;
 	constexpr static size_t special_type_index_literal_float = 3;
+
+	// Indices for quick identification of intrinsic types
+	static size_t intrinsic_type_index_int;
+	static size_t intrinsic_type_index_bool;
+	static size_t intrinsic_type_index_char;
+	static size_t intrinsic_type_index_f32;
+	static size_t intrinsic_type_index_f64;
+
+	enum class ModifierType
+	{
+		Pointer
+	};
+
+	struct Modifier
+	{
+		ModifierType type;
+		size_t modifier_amount;
+	};
+
+	constexpr static size_t max_modifiers = 4;
+	Modifier modifiers[max_modifiers];
+	uint8_t modifiers_in_use = 0;
+
+	TypeAnnotation add_pointer() const;
+	TypeAnnotation remove_pointer() const;
 };
 
 enum class AstNodeType
@@ -140,13 +165,12 @@ struct Variable
 {
 	uint32_t stack_offset;
 	std::string name;
-	size_t type_index;
+	TypeAnnotation type_annotation;
 };
 
 enum class TypeType
 {
 	Intrinsic,
-	Pointer,
 	Struct,
 	Alias,
 	Function,
@@ -160,10 +184,6 @@ struct Type
 	SourceLocation location; // For printing errors etc
 
 	size_t data_size;
-
-	// Set for pointers
-	size_t remove_ptr_type;
-	std::optional<size_t> add_ptr_type;
 
 	// Set for structs
 	size_t scope;
@@ -182,7 +202,7 @@ struct Scope
 	std::vector<Variable> local_variables;
 	std::optional<size_t> parent;
 
-	std::optional<size_t> make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index);
+	std::optional<size_t> make_variable(SymbolTable& symbol_table, const std::string& name, const TypeAnnotation& type_annotation);
 };
 
 struct Function
@@ -192,17 +212,17 @@ struct Function
 	size_t ast_node_root;
 	std::string name;
 	std::string asm_name;
-	std::vector<size_t> parameters;
+	std::vector<size_t> parameters; // Indices of the parameters in the local variables of the scope
 	bool intrinsic;
-	std::optional<size_t> return_type_index;
+	std::optional<TypeAnnotation> return_type;
 	size_t next_label = 0;
 	bool is_external = false;
 };
 
 struct FunctionType
 {
-	std::vector<size_t> parameter_types;
-	std::optional<size_t> return_type_index;
+	std::vector<TypeAnnotation> parameter_types;
+	std::optional<TypeAnnotation> return_type_index;
 };
 
 struct ConstantString
@@ -242,7 +262,9 @@ struct SymbolTable
 	std::optional<size_t> find_function(const std::string& name);
 	std::optional<size_t> find_type(const std::string& name);
 	size_t find_add_type(const std::string& name, const Token& token);
-	std::optional<size_t> find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type);
+	std::optional<size_t> find_matching_function_type(const std::vector<TypeAnnotation>& parameter_types, const std::optional<TypeAnnotation>& return_type);
+
+	bool check_equivalent(const TypeAnnotation& a, const TypeAnnotation& b) const;
 
 	size_t find_add_string(const std::string& str);
 	size_t find_add_float(double value);
@@ -250,8 +272,12 @@ struct SymbolTable
 	void add_linker_path(const std::string& path, bool is_macos_framework);
 };
 
-void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_index);
+void pretty_print_type(FILE* output, const SymbolTable& symbol_table, const TypeAnnotation& type_annotation);
 void dump_symbol_table(FILE* output, SymbolTable& symbol_table);
 
-size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type);
-size_t get_type_remove_pointer(SymbolTable& symbol_table, size_t ptr_type);
+bool is_bool_type(TypeAnnotation& ta);
+bool is_number_type(TypeAnnotation& ta);
+bool is_float_type(TypeAnnotation& ta);
+bool is_float_32_type(TypeAnnotation& ta);
+bool is_float_64_type(TypeAnnotation& ta);
+bool is_struct_type(SymbolTable& symbol_table, TypeAnnotation& ta);

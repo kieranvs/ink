@@ -95,21 +95,7 @@ void log_error(const SourceLocation& location, const char* message)
 	for (auto& note : notes_to_print)
 	{
 		printf("Note: %s has type ", note.label);
-		if (note.ta.special)
-		{
-			if (note.ta.type_index == TypeAnnotation::special_type_index_literal_int)
-				printf("Literal Integer");
-			else if (note.ta.type_index == TypeAnnotation::special_type_index_literal_bool)
-				printf("Literal Bool");
-			else if (note.ta.type_index == TypeAnnotation::special_type_index_literal_char)
-				printf("Literal Char");
-			else if (note.ta.type_index == TypeAnnotation::special_type_index_literal_float)
-				printf("Literal Float");
-			else
-				printf("Special Type %zu", note.ta.type_index);
-		}
-		else
-			pretty_print_type(stdout, *note.symbol_table, note.ta.type_index);
+		pretty_print_type(stdout, *note.symbol_table, note.ta);
 		printf("\n");
 	}
 	notes_to_print.clear();

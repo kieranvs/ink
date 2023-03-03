@@ -180,11 +180,11 @@ int main(int argc, char** argv)
 		return symbol_table.types.size() - 1;
 	};
 
-	auto int_type = add_intrinsic_type("u64", 8);
-	add_intrinsic_type("bool", 1);
-	auto char_type = add_intrinsic_type("u8", 1);
-	auto float_type = add_intrinsic_type("f64", 8);
-	add_intrinsic_type("f32", 4);
+	TypeAnnotation::intrinsic_type_index_int = add_intrinsic_type("u64", 8);
+	TypeAnnotation::intrinsic_type_index_bool = add_intrinsic_type("bool", 1);
+	TypeAnnotation::intrinsic_type_index_char = add_intrinsic_type("u8", 1);
+	TypeAnnotation::intrinsic_type_index_f64 = add_intrinsic_type("f64", 8);
+	TypeAnnotation::intrinsic_type_index_f32 = add_intrinsic_type("f32", 4);
 
 	auto add_alias_type = [&](const char* name, size_t actual_type)
 	{
@@ -195,9 +195,9 @@ int main(int argc, char** argv)
 		type.actual_type = actual_type;
 	};
 
-	add_alias_type("int", int_type);
-	add_alias_type("char", char_type);
-	add_alias_type("float", float_type);
+	add_alias_type("int", TypeAnnotation::intrinsic_type_index_int);
+	add_alias_type("char", TypeAnnotation::intrinsic_type_index_char);
+	add_alias_type("float", TypeAnnotation::intrinsic_type_index_f64);
 
 	{
 		symbol_table.scopes.emplace_back();
@@ -205,7 +205,10 @@ int main(int argc, char** argv)
 		auto& scope = symbol_table.scopes.back();
 
 		scope.local_variables.emplace_back();
-		scope.local_variables.back().type_index = symbol_table.find_type("int").value();
+		auto& ta = scope.local_variables.back().type_annotation;
+		ta.type_index = TypeAnnotation::intrinsic_type_index_int;
+		ta.special = false;
+		ta.modifiers_in_use = 0;
 
 		symbol_table.functions.emplace_back();
 		auto& func = symbol_table.functions.back();
@@ -222,7 +225,10 @@ int main(int argc, char** argv)
 		auto& scope = symbol_table.scopes.back();
 
 		scope.local_variables.emplace_back();
-		scope.local_variables.back().type_index = symbol_table.find_type("bool").value();
+		auto& ta = scope.local_variables.back().type_annotation;
+		ta.type_index = TypeAnnotation::intrinsic_type_index_bool;
+		ta.special = false;
+		ta.modifiers_in_use = 0;
 
 		symbol_table.functions.emplace_back();
 		auto& func = symbol_table.functions.back();
@@ -239,7 +245,10 @@ int main(int argc, char** argv)
 		auto& scope = symbol_table.scopes.back();
 
 		scope.local_variables.emplace_back();
-		scope.local_variables.back().type_index = symbol_table.find_type("char").value();
+		auto& ta = scope.local_variables.back().type_annotation;
+		ta.type_index = TypeAnnotation::intrinsic_type_index_char;
+		ta.special = false;
+		ta.modifiers_in_use = 0;
 
 		symbol_table.functions.emplace_back();
 		auto& func = symbol_table.functions.back();
@@ -256,7 +265,10 @@ int main(int argc, char** argv)
 		auto& scope = symbol_table.scopes.back();
 
 		scope.local_variables.emplace_back();
-		scope.local_variables.back().type_index = symbol_table.find_type("float").value();
+		auto& ta = scope.local_variables.back().type_annotation;
+		ta.type_index = TypeAnnotation::intrinsic_type_index_f64;
+		ta.special = false;
+		ta.modifiers_in_use = 0;
 
 		symbol_table.functions.emplace_back();
 		auto& func = symbol_table.functions.back();
@@ -273,7 +285,10 @@ int main(int argc, char** argv)
 		auto& scope = symbol_table.scopes.back();
 
 		scope.local_variables.emplace_back();
-		scope.local_variables.back().type_index = symbol_table.find_type("f32").value();
+		auto& ta = scope.local_variables.back().type_annotation;
+		ta.type_index = TypeAnnotation::intrinsic_type_index_f32;
+		ta.special = false;
+		ta.modifiers_in_use = 0;
 
 		symbol_table.functions.emplace_back();
 		auto& func = symbol_table.functions.back();
@@ -290,7 +305,12 @@ int main(int argc, char** argv)
 		auto& scope = symbol_table.scopes.back();
 
 		scope.local_variables.emplace_back();
-		scope.local_variables.back().type_index = get_type_add_pointer(symbol_table, symbol_table.find_type("char").value());
+		auto& ta = scope.local_variables.back().type_annotation;
+		ta.type_index = TypeAnnotation::intrinsic_type_index_char;
+		ta.special = false;
+		ta.modifiers_in_use = 1;
+		ta.modifiers[0].type = TypeAnnotation::ModifierType::Pointer;
+		ta.modifiers[0].modifier_amount = 1;
 
 		symbol_table.functions.emplace_back();
 		auto& func = symbol_table.functions.back();

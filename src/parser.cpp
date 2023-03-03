@@ -71,15 +71,11 @@ size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_
 		auto& parent_variable = variable_location.is_global
 			? symbol_table.global_variables[variable_location.variable_index]
 			: symbol_table.scopes[variable_location.scope_index].local_variables[variable_location.variable_index];
-		auto& parent_variable_type = symbol_table.types[parent_variable.type_index];
+		auto& parent_variable_type = symbol_table.types[parent_variable.type_annotation.type_index];
 
-		if (parent_variable_type.type != TypeType::Struct)
+		if (!is_struct_type(symbol_table, parent_variable.type_annotation))
 		{
-			TypeAnnotation ta;
-			ta.special = false;
-			ta.type_index = parent_variable.type_index;
-
-			log_note_type(ta, symbol_table, "expression");
+			log_note_type(parent_variable.type_annotation, symbol_table, "expression");
 			log_error(*prev_ident_token, "Not a struct");
 		}
 
@@ -90,11 +86,7 @@ size_t parse_variable(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_
 
 		if (!field_location.has_value())
 		{
-			TypeAnnotation ta;
-			ta.special = false;
-			ta.type_index = parent_variable.type_index;
-
-			log_note_type(ta, symbol_table, "parent");
+			log_note_type(parent_variable.type_annotation, symbol_table, "parent");
 			log_error(ident_token, "Couldn't find field");
 		}
 
@@ -397,18 +389,22 @@ bool next_matches_type(Parser& parser)
 	return false;
 }
 
-size_t parse_type(Parser& parser, SymbolTable& symbol_table)
+TypeAnnotation parse_type(Parser& parser, SymbolTable& symbol_table)
 {
 	auto& type_token = parser.get();
 	auto type_index = symbol_table.find_add_type(type_token.data_str, type_token);
-	
+
+	TypeAnnotation ta;
+	ta.type_index = type_index;
+	ta.special = false;
+
 	while (parser.next_is(TokenType::Asterisk))
 	{
 		parser.get(); // asterisk
-		type_index = get_type_add_pointer(symbol_table, type_index);
+		ta = ta.add_pointer();
 	}
 
-	return type_index;
+	return ta;
 }
 
 size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size_t scope_index, TokenType end_token = TokenType::StatementEnd)
@@ -430,7 +426,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 	// Assignment to new variable
 	else if (next_matches_type(parser))
 	{
-		auto type_index = parse_type(parser, symbol_table);
+		auto type_annotation = parse_type(parser, symbol_table);
 
 		if (!parser.next_is(TokenType::Identifier))
 			log_error(parser.peek(), "Expected identifier");
@@ -459,7 +455,7 @@ size_t parse_statement(Parser& parser, Ast& ast, SymbolTable& symbol_table, size
 
 		auto& scope = symbol_table.scopes[scope_index];
 
-		auto variable_index = scope.make_variable(symbol_table, ident_token.data_str, type_index);
+		auto variable_index = scope.make_variable(symbol_table, ident_token.data_str, type_annotation);
 		if (!variable_index)
 			log_error(ident_token, "Duplicate variable");
 
@@ -706,7 +702,7 @@ void parse_function(Parser& parser, SymbolTable& symbol_table, bool is_external)
 	if (parser.next_is(TokenType::Colon))
 	{
 		parser.get();
-		func.return_type_index = parse_type(parser, symbol_table);
+		func.return_type = parse_type(parser, symbol_table);
 	}
 
 	if (!is_external)
@@ -735,8 +731,8 @@ void parse_function_type(Parser& parser, SymbolTable& symbol_table)
 	if (symbol_table.find_type(ident_token.data_str) != std::nullopt)
 	log_error(ident_token, "Redefined type");
 
-	std::vector<size_t> parameter_types;
-	std::optional<size_t> return_type;
+	std::vector<TypeAnnotation> parameter_types;
+	std::optional<TypeAnnotation> return_type;
 
 	// Parse parameter list
 	while (true)
@@ -746,8 +742,8 @@ void parse_function_type(Parser& parser, SymbolTable& symbol_table)
 
 		if (next_matches_type(parser))
 		{
-			auto type_index = parse_type(parser, symbol_table);
-			parameter_types.push_back(type_index);
+			auto type_annotation = parse_type(parser, symbol_table);
+			parameter_types.push_back(type_annotation);
 
 			if (parser.next_is(TokenType::Comma))
 				parser.get();
@@ -829,12 +825,12 @@ void parse_struct(Parser& parser, SymbolTable& symbol_table)
 
 		if (next_matches_type(parser))
 		{
-			auto field_type_index = parse_type(parser, symbol_table);
+			auto field_type_annotation = parse_type(parser, symbol_table);
 			auto& ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
 
 			parser.get_if(TokenType::StatementEnd, "Expected ;");
 
-			auto variable_index = symbol_table.scopes[scope_index].make_variable(symbol_table, ident_token.data_str, field_type_index);
+			auto variable_index = symbol_table.scopes[scope_index].make_variable(symbol_table, ident_token.data_str, field_type_annotation);
 			if (!variable_index)
 				log_error(ident_token, "Duplicate struct field");
 		}
@@ -880,14 +876,14 @@ void parse_top_level(Parser& parser, SymbolTable& symbol_table, const std::strin
 		}
 		else if (next_matches_type(parser))
 		{
-			auto type_index = parse_type(parser, symbol_table);
+			auto type_annotation = parse_type(parser, symbol_table);
 
 			auto& ident_token = parser.get_if(TokenType::Identifier, "Expected identifier");
 			parser.get_if(TokenType::StatementEnd, "Expected ;");
 
 			auto& var = symbol_table.global_variables.emplace_back();
 			var.name = ident_token.data_str;
-			var.type_index = type_index;
+			var.type_annotation = type_annotation;
 		}
 		else if (parser.next_is(TokenType::DirectiveInclude, TokenType::LiteralString))
 		{

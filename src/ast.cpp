@@ -5,6 +5,12 @@
 
 #include <stdio.h>
 
+size_t TypeAnnotation::intrinsic_type_index_int;
+size_t TypeAnnotation::intrinsic_type_index_bool;
+size_t TypeAnnotation::intrinsic_type_index_char;
+size_t TypeAnnotation::intrinsic_type_index_f32;
+size_t TypeAnnotation::intrinsic_type_index_f64;
+
 void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, int indent = 0)
 {
 	for (int i = 0; i < indent; i++)
@@ -221,21 +227,16 @@ void dump_ast(FILE* output, SymbolTable& symbol_table, Ast& ast, size_t index, i
 	}
 }
 
-void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_index)
+void pretty_print_base_type(FILE* output, const SymbolTable& symbol_table, size_t type_index)
 {
 	auto& t = symbol_table.types[type_index];
 
 	if (t.type == TypeType::Intrinsic || t.type == TypeType::Struct)
 		fprintf(output, "%s", t.name.c_str());
-	else if (t.type == TypeType::Pointer)
-	{
-		pretty_print_type(output, symbol_table, t.remove_ptr_type);
-		fprintf(output, "*");
-	}
 	else if (t.type == TypeType::Alias)
 	{
 		fprintf(output, "%s=", t.name.c_str());
-		pretty_print_type(output, symbol_table, t.actual_type);
+		pretty_print_base_type(output, symbol_table, t.actual_type);
 	}
 	else if (t.type == TypeType::Function)
 	{
@@ -264,6 +265,35 @@ void pretty_print_type(FILE* output, SymbolTable& symbol_table, size_t type_inde
 		internal_error("Unhandled type type in pretty_print_type\n");
 }
 
+void pretty_print_type(FILE* output, const SymbolTable& symbol_table, const TypeAnnotation& type_annotation)
+{
+	if (type_annotation.special)
+	{
+		if (type_annotation.type_index == TypeAnnotation::special_type_index_literal_int)
+			printf("Literal Integer");
+		else if (type_annotation.type_index == TypeAnnotation::special_type_index_literal_bool)
+			printf("Literal Bool");
+		else if (type_annotation.type_index == TypeAnnotation::special_type_index_literal_char)
+			printf("Literal Char");
+		else if (type_annotation.type_index == TypeAnnotation::special_type_index_literal_float)
+			printf("Literal Float");
+		else
+			printf("Special Type %zu", type_annotation.type_index);
+	}
+	else
+	{
+		pretty_print_base_type(output, symbol_table, type_annotation.type_index);
+		for (int i = 0; i < type_annotation.modifiers_in_use; i++)
+		{
+			if (type_annotation.modifiers[i].type == TypeAnnotation::ModifierType::Pointer)
+			{
+				for (size_t pi = 0; pi < type_annotation.modifiers[i].modifier_amount; pi++)
+					fprintf(output, "*");
+			}
+		}
+	}
+}
+
 void dump_scope(FILE* output, SymbolTable& symbol_table, size_t index, int indent = 0)
 {
 	for (auto& variable : symbol_table.scopes[index].local_variables)
@@ -271,7 +301,7 @@ void dump_scope(FILE* output, SymbolTable& symbol_table, size_t index, int inden
 		for (int i = 0; i < indent; i++)
 			fprintf(output, "  ");
 		fprintf(output, "%s (type=", variable.name.c_str());
-		pretty_print_type(output, symbol_table, variable.type_index);
+		pretty_print_type(output, symbol_table, variable.type_annotation);
 		fprintf(output, ", stack_offset=%u)\n", variable.stack_offset);
 	}
 
@@ -292,13 +322,11 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 		auto& t = symbol_table.types[i];
 
 		fprintf(output, "%zu (", i);
-		pretty_print_type(output, symbol_table, i);
+		pretty_print_base_type(output, symbol_table, i);
 		fprintf(output, ")\n");
 
 		if (t.type == TypeType::Intrinsic)
 			fprintf(output, "  Type: Intrinsic\n");
-		else if (t.type == TypeType::Pointer)
-			fprintf(output, "  Type: Pointer\n");
 		else if (t.type == TypeType::Struct)
 			fprintf(output, "  Type: Struct\n");
 		else if (t.type == TypeType::Alias)
@@ -321,7 +349,7 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 	for (auto& variable : symbol_table.global_variables)
 	{
 		fprintf(output, "%s (type=", variable.name.c_str());
-		pretty_print_type(output, symbol_table, variable.type_index);
+		pretty_print_type(output, symbol_table, variable.type_annotation);
 		fprintf(output, ")\n");
 	}
 
@@ -332,6 +360,12 @@ void dump_symbol_table(FILE* output, SymbolTable& symbol_table)
 		fprintf(output, "Parameters: ");
 		for (auto x : func.parameters)
 			fprintf(output, "%zd ", x);
+		fprintf(output, "\n");
+		fprintf(output, "Return: ");
+		if (func.return_type.has_value())
+			pretty_print_type(output, symbol_table, func.return_type.value());
+		else
+			fprintf(output, "-");
 		fprintf(output, "\n");
 
 		fprintf(output, "Scope:\n");
@@ -389,7 +423,7 @@ std::optional<VariableFindResult> SymbolTable::find_variable(size_t scope_index,
 	return std::nullopt;
 }
 
-std::optional<size_t> Scope::make_variable(SymbolTable& symbol_table, const std::string& name, size_t type_index)
+std::optional<size_t> Scope::make_variable(SymbolTable& symbol_table, const std::string& name, const TypeAnnotation& type_annotation)
 {
 	for (size_t i = 0; i < local_variables.size(); i++)
 	{
@@ -397,13 +431,13 @@ std::optional<size_t> Scope::make_variable(SymbolTable& symbol_table, const std:
 		if (local_variables[i].name == name) return std::nullopt;
 	}
 
-	auto& type = symbol_table.types[type_index];
+	auto& type = symbol_table.types[type_annotation.type_index];
 	if (type.type == TypeType::Alias)
 		internal_error("make_variable called with alias type");
 
 	auto& v = local_variables.emplace_back();
 	v.name = name;
-	v.type_index = type_index;
+	v.type_annotation = type_annotation;
 	
 	return local_variables.size() - 1;
 }
@@ -456,7 +490,7 @@ size_t SymbolTable::find_add_type(const std::string& name, const Token& token)
 	return types.size() - 1;
 }
 
-std::optional<size_t> SymbolTable::find_matching_function_type(const std::vector<size_t>& parameter_types, const std::optional<size_t>& return_type)
+std::optional<size_t> SymbolTable::find_matching_function_type(const std::vector<TypeAnnotation>& parameter_types, const std::optional<TypeAnnotation>& return_type)
 {
 	for (size_t type_index = 0; type_index < types.size(); type_index++)
 	{
@@ -471,9 +505,13 @@ std::optional<size_t> SymbolTable::find_matching_function_type(const std::vector
 			if (function_type.parameter_types.size() != parameter_types.size()) return false;
 
 			for (size_t i = 0; i < parameter_types.size(); i++)
-				if (function_type.parameter_types[i] != parameter_types[i]) return false;
+				if (!check_equivalent(function_type.parameter_types[i], parameter_types[i])) return false;
 
-			if (function_type.return_type_index != return_type) return false;
+			if (function_type.return_type_index.has_value() != return_type.has_value()) return false;
+
+			if (return_type.has_value())
+				if (!check_equivalent(function_type.return_type_index.value(), return_type.value()))
+					return false;
 
 			return true;
 		}();
@@ -483,6 +521,34 @@ std::optional<size_t> SymbolTable::find_matching_function_type(const std::vector
 	}
 
 	return std::nullopt;
+}
+
+bool SymbolTable::check_equivalent(const TypeAnnotation& a, const TypeAnnotation& b) const
+{
+	if (a.special != b.special) return false;
+
+	if (a.special)
+	{
+		if (a.type_index != b.type_index) return false;
+	}
+	else
+	{
+		auto actual_type_a = types[a.type_index].type != TypeType::Alias ? a.type_index : types[a.type_index].actual_type;
+		auto actual_type_b = types[b.type_index].type != TypeType::Alias ? b.type_index : types[b.type_index].actual_type;
+
+		if (actual_type_a != actual_type_b) return false;
+		if (a.modifiers_in_use != b.modifiers_in_use) return false;
+
+		for (int i = 0; i < a.modifiers_in_use; i++)
+		{
+			if (a.modifiers[i].type != b.modifiers[i].type)
+					return false;
+			if (a.modifiers[i].modifier_amount != b.modifiers[i].modifier_amount)
+					return false;
+		}
+	}
+
+	return true;
 }
 
 size_t SymbolTable::find_add_string(const std::string& str)
@@ -520,29 +586,104 @@ void SymbolTable::add_linker_path(const std::string& path, bool is_macos_framewo
 	linker_paths.emplace_back(path, is_macos_framework);
 }
 
-size_t get_type_add_pointer(SymbolTable& symbol_table, size_t base_type)
+TypeAnnotation TypeAnnotation::add_pointer() const
 {
-	if (symbol_table.types[base_type].add_ptr_type.has_value())
-		return symbol_table.types[base_type].add_ptr_type.value();
+	TypeAnnotation new_ta = *this;
+	if (new_ta.modifiers_in_use != 0 && new_ta.modifiers[new_ta.modifiers_in_use - 1].type == ModifierType::Pointer)
+	{
+		new_ta.modifiers[new_ta.modifiers_in_use - 1].modifier_amount += 1;
+		return new_ta;
+	}
+
+	if (new_ta.modifiers_in_use == max_modifiers)
+	{
+		internal_error("Reached maximum number of modifiers applied to a type");
+	}
 	else
 	{
-		symbol_table.types.emplace_back();
-		auto& type = symbol_table.types.back();
-		type.type = TypeType::Pointer;
-		type.data_size = 8;
-		type.remove_ptr_type = base_type;
+		new_ta.modifiers_in_use += 1;
+		new_ta.modifiers[new_ta.modifiers_in_use - 1].type = ModifierType::Pointer;
+		new_ta.modifiers[new_ta.modifiers_in_use - 1].modifier_amount = 1;
 
-		auto new_type_index = symbol_table.types.size() - 1;
-		symbol_table.types[base_type].add_ptr_type = new_type_index;
-
-		return new_type_index;
+		return new_ta;
 	}
 }
 
-size_t get_type_remove_pointer(SymbolTable& symbol_table, size_t ptr_type)
+TypeAnnotation TypeAnnotation::remove_pointer() const
 {
-	if (symbol_table.types[ptr_type].type != TypeType::Pointer)
-		internal_error("Remove pointer from non-pointer type");
+	TypeAnnotation new_ta = *this;
+	if (new_ta.modifiers_in_use == 0 || new_ta.modifiers[new_ta.modifiers_in_use - 1].type != ModifierType::Pointer)
+		internal_error("remove_pointer called on non-pointer type annotation");
+	if (new_ta.modifiers[modifiers_in_use - 1].modifier_amount == 1)
+		new_ta.modifiers_in_use -= 1;
 	else
-		return symbol_table.types[ptr_type].remove_ptr_type;
+		new_ta.modifiers[new_ta.modifiers_in_use - 1].modifier_amount -= 1;
+
+	return new_ta;
+}
+
+bool is_bool_type(TypeAnnotation& ta)
+{
+	if (ta.modifiers_in_use != 0) return false;
+
+	if (ta.special)
+		return ta.type_index == TypeAnnotation::special_type_index_literal_bool;
+	else
+		return ta.type_index == TypeAnnotation::intrinsic_type_index_bool;
+}
+
+bool is_number_type(TypeAnnotation& ta)
+{
+	if (ta.modifiers_in_use != 0) return false;
+
+	if (ta.special)
+		return ta.type_index == TypeAnnotation::special_type_index_literal_int
+			|| ta.type_index == TypeAnnotation::special_type_index_literal_char
+			|| ta.type_index == TypeAnnotation::special_type_index_literal_float;
+	else
+		return ta.type_index == TypeAnnotation::intrinsic_type_index_int
+			|| ta.type_index == TypeAnnotation::intrinsic_type_index_char
+			|| ta.type_index == TypeAnnotation::intrinsic_type_index_f32
+			|| ta.type_index == TypeAnnotation::intrinsic_type_index_f64;
+}
+
+bool is_float_type(TypeAnnotation& ta)
+{
+	if (ta.modifiers_in_use != 0) return false;
+
+	if (ta.special)
+		return ta.type_index == TypeAnnotation::special_type_index_literal_float;
+	else
+		return ta.type_index == TypeAnnotation::intrinsic_type_index_f32
+			|| ta.type_index == TypeAnnotation::intrinsic_type_index_f64;
+}
+
+bool is_float_32_type(TypeAnnotation& ta)
+{
+	if (ta.modifiers_in_use != 0) return false;
+
+	return !ta.special && ta.type_index == TypeAnnotation::intrinsic_type_index_f32;
+}
+
+bool is_float_64_type(TypeAnnotation& ta)
+{
+	if (ta.modifiers_in_use != 0) return false;
+
+	if (ta.special)
+		return ta.type_index == TypeAnnotation::special_type_index_literal_float;
+	else
+		return ta.type_index == TypeAnnotation::intrinsic_type_index_f64;
+}
+
+bool is_struct_type(SymbolTable& symbol_table, TypeAnnotation& ta)
+{
+	if (ta.modifiers_in_use != 0) return false;
+
+	if (ta.special)
+		return false;
+	else
+	{
+		auto& type = symbol_table.types[ta.type_index];
+		return type.type == TypeType::Struct;
+	}
 }

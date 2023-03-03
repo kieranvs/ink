@@ -11,12 +11,12 @@ uint32_t assign_stack_offsets(SymbolTable& symbol_table, uint32_t base_offset, s
 	for (size_t var_index = 0; var_index < scope.local_variables.size(); var_index++)
 	{
 		auto& var = scope.local_variables[var_index];
-		auto& type = symbol_table.types[var.type_index];
+		auto data_size = get_data_size(symbol_table, var.type_annotation);
 		if (var_index == 0)
-			var.stack_offset = type.data_size + base_offset;
+			var.stack_offset = data_size + base_offset;
 		else
-			var.stack_offset = scope.local_variables[var_index - 1].stack_offset + type.data_size;
-		scope_size += type.data_size;
+			var.stack_offset = scope.local_variables[var_index - 1].stack_offset + data_size;
+		scope_size += data_size;
 	}
 
 	// This is an inefficient way to find the child scopes
@@ -49,8 +49,8 @@ void assign_stack_offsets_dependent_scopes(SymbolTable& symbol_table, size_t sco
 	// If this scope contains structs, need to process the struct's scope first
 	for (auto& var : symbol_table.scopes[scope_index].local_variables)
 	{
-		auto& type = symbol_table.types[var.type_index];
-		if (type.type == TypeType::Struct)
+		auto& type = symbol_table.types[var.type_annotation.type_index];
+		if (is_struct_type(symbol_table, var.type_annotation)) // will break when we have arrays - need to check if it depends on the member types not being incomplete, i.e. pointers are okay
 		{
 			if (!visited[type.scope])
 				assign_stack_offsets_dependent_scopes(symbol_table, type.scope, visited);
@@ -66,8 +66,8 @@ void assign_stack_offsets_dependent_scopes(SymbolTable& symbol_table, size_t sco
 
 		for (auto& var : symbol_table.scopes[child_index].local_variables)
 		{
-			auto& type = symbol_table.types[var.type_index];
-			if (type.type == TypeType::Struct)
+			auto& type = symbol_table.types[var.type_annotation.type_index];
+			if (is_struct_type(symbol_table, var.type_annotation)) // will break when we have arrays - need to check if it depends on the member types not being incomplete, i.e. pointers are okay
 			{
 				if (!visited[type.scope])
 					assign_stack_offsets_dependent_scopes(symbol_table, type.scope, visited);
@@ -122,4 +122,17 @@ void compute_sizing(SymbolTable& symbol_table)
 	}
 
 	assign_stack_offsets_all_scopes(symbol_table);
+}
+
+size_t get_data_size(SymbolTable& symbol_table, const TypeAnnotation& type_annotation)
+{
+	size_t size = symbol_table.types[type_annotation.type_index].data_size;
+
+	for (int i = 0; i < type_annotation.modifiers_in_use; i++)
+	{
+		if (type_annotation.modifiers[i].type == TypeAnnotation::ModifierType::Pointer)
+			size = 8;
+	}
+
+	return size;
 }
